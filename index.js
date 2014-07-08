@@ -3,7 +3,13 @@
 var request = require('request')
   , Q = require('q')
   
-  , URL_BASE = 'https://wwws.mint.com/';
+  , URL_BASE = 'https://wwws.mint.com/'
+  // , URL_BASE = 'http://localhost:3001/'
+  , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36'
+  , BROWSER = 'chrome'
+  , BROWSER_VERSION = 35
+  , OS_NAME = 'mac';
+
 
 module.exports = Prepare;
 
@@ -44,14 +50,24 @@ function _jsonify(promise) {
 function _login(mint, email, password, callback) {
     return mint._get('login.event?task=L')
     .then(function() {
-        // then, login
+        // now, get user pod (!?)
+        return mint._form('getUserPod.xevent', {
+            username: email
+        });
+    })
+    .then(function(json) {
+        // save the pod number (or whatever) in a cookie
+        var cookie = request.cookie('mintPN=' + json.mintPN);
+        mint.jar.setCookie(cookie, URL_BASE);
+
+        // finally, login
         return mint._form('loginUserSubmit.xevent', {
             username: email
           , password: password
           , task: 'L'
-          , browser: 'firefox'
-          , browserVersion: '27'
-          , os: 'linux'
+          , browser: BROWSER
+          , browserVersion: BROWSER_VERSION
+          , os: OS_NAME
         });
     })
     .then(function(json) {
@@ -262,7 +278,11 @@ PepperMint.prototype._form = function(url, form) {
           , method: 'POST'
           , form: form
           , headers: {
-                accept: 'application/json'
+                Accept: 'application/json'
+              , 'User-Agent': USER_AGENT
+              , 'X-Request-With': 'XMLHttpRequest'
+              , 'X-NewRelic-ID': 'UA4OVVFWGwEGV1VaBwc='
+              , 'Referrer': 'https://wwws.mint.com/login.event?task=L&messageId=1&country=US&nextPage=overview.event'
             }
         }, function(err, response, body) {
             if (err) return reject(err);

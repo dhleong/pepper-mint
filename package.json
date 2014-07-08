@@ -11,10 +11,11 @@
     "url": "http://github.com/dhleong/pepper-mint"
   },
   "keywords": [
+    "mint.com",
     "mint",
     "api"
   ],
-  "author": "Daniel Leong",
+  "author": "Daniel Leong <me@dhleong.net>",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/dhleong/pepper-mint/issues"
