@@ -141,8 +141,8 @@ PepperMint.prototype.transactions = function(accountId, offset) {
  * Create a new cash transaction;
  *  to be used to fake transaction imports.
  *
- * NB: There is currently no validation of arguments,
- *  and the server seems to silently reject, too :(
+ * NB: There is currently very little arg validation,
+ *  and the server seems to silently reject issues, too :(
  *
  * Args should look like: {
  *  accountId: 1234 // apparently ignored, but good to have, I guess?
@@ -159,14 +159,16 @@ PepperMint.prototype.transactions = function(accountId, offset) {
  *  tags: [1234, 5678] // set of ids
  * }
  *
+ * @param category Optional; if not provided, will just show
+ *  up as UNCATEGORIZED, it seems
+ *
  */
 PepperMint.prototype.createTransaction = function(args) {
+
     var self = this;
     var form = {
         amount: args.amount
       , cashTxnType: 'on'
-      , catId: args.category.id
-      , category: args.category.name
       , date: args.date
       , isInvestment: args.isInvestment
       , merchant: args.merchant
@@ -181,6 +183,11 @@ PepperMint.prototype.createTransaction = function(args) {
 
       , token: this.token
     };
+
+    if (args.category) {
+        args.catId = args.category.id;
+        args.category = args.category.name;
+    }
 
     // set any tags requested
     if (Array.isArray(args.tags)) {
