@@ -43,21 +43,23 @@ PepperMint API object. All methods below are called on that object, and
 return a Promise. In this context, "returns" is a shorthand to mean
 "the promise resolves with."
 
-#### mint.accounts()
+#### mint.getAccounts()
 
 Returns an array of Accounts. 
 
-#### mint.categories()
+#### mint.getCategories()
 
 Returns a list of Categories (for categorizing transactions)
 
-#### mint.tags()
+#### mint.getTags()
 
 Returns a list of user-defined Tags
 
-#### mint.transactions([accountId])
+#### mint.getTransactions([args])
 
-Returns a list of Transactions, optionally filtered by account
+Returns a list of Transactions, optionally filtered by account and/or offset.
+`args` is an optional dictionary, with keys `accountId` and `offset`, both
+optional. 
 
 #### mint.createTransaction(args)
 

@@ -96,9 +96,9 @@ function PepperMint() {
 }
 
 /**
- * Returns a promise that fetches accoutns
+ * Returns a promise that fetches accounts
  */
-PepperMint.prototype.accounts = function() {
+PepperMint.prototype.getAccounts = function() {
     var self = this;
     return self._jsonForm({
         args: {
@@ -122,14 +122,14 @@ PepperMint.prototype.accounts = function() {
 /**
  * Promised category list fetch
  */
-PepperMint.prototype.categories = function() {
+PepperMint.prototype.getCategories = function() {
     return this._getJsonData('categories');
 };
 
 /**
  * Promised tags list fetch
  */
-PepperMint.prototype.tags = function() {
+PepperMint.prototype.getTags = function() {
     return this._getJsonData('tags');
 };
 
@@ -138,14 +138,18 @@ PepperMint.prototype.tags = function() {
 /**
  * Returns a promise that fetches transactions,
  *  optionally filtered by account and offset
+ *
+ * Args should look like: {
+ *  accountId: 1234 // optional
+ *  offset: 0 // optional
+ * }
  */
-PepperMint.prototype.transactions = function(accountId, offset) {
-    if (!accountId)
-        throw new Error('accountId is required');
-
-    offset = offset || 0;
+PepperMint.prototype.getTransactions = function(args) {
+    
+    args = args || {};
+    var offset = args.offset || 0;
     return this._getJsonData({
-        accountId: accountId
+        accountId: args.accountId
       , offset: offset
       , comparableType: 8 // ?
       , acctChanged: 'T'  // ?
