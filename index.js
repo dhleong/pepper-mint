@@ -4,7 +4,6 @@ var request = require('request')
   , Q = require('q')
   
   , URL_BASE = 'https://wwws.mint.com/'
-  // , URL_BASE = 'http://localhost:3001/'
   , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36'
   , BROWSER = 'chrome'
   , BROWSER_VERSION = 35

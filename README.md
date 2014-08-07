@@ -7,6 +7,8 @@ Builds on the [work by mroony](https://github.com/mrooney/mintapi)
 
 ### Usage
 
+[![NPM](https://nodei.co/npm/pepper-mint.png?mini=true)](https://nodei.co/npm/pepper-mint/)
+
 ```javascript
 require('pepper-mint')(user, pass)
 .then(function(mint) {
