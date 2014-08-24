@@ -11,6 +11,12 @@ var request = require('request')
 
 
 module.exports = Prepare;
+module.exports.setHttpService = SetHttpService;
+
+// default http service factory
+var _requestService = function(args) {
+    return request.defaults(args);
+};
 
 /**
  * Public "login" interface. Eg:
@@ -28,6 +34,20 @@ function Prepare(email, password) {
             resolve(mint);
         });
     });
+}
+
+/**
+ * If you don't like `request` for whatever reason
+ *  (it's unreasonably slow with node-webkit + angular,
+ *  for some reason), you can provide a new one here.
+ *
+ * @param service the Factory for the http service. Called
+ *  with {jar: cookieJar}, where the cookieJar is a 
+ *  request-compatible object containing the cookie jar.
+ */
+function SetHttpService(service) {
+    _requestService = service;
+    return module.exports;
 }
 
 /** wrap a Promise with JSON body parsing on success */
@@ -91,7 +111,7 @@ function PepperMint() {
     this.requestId = 42; // magic number? random number?
 
     this.jar = request.jar();
-    this.request = request.defaults({jar: this.jar});
+    this.request = _requestService({jar: this.jar});
 }
 
 /**
