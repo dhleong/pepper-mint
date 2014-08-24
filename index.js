@@ -47,12 +47,12 @@ function _jsonify(promise) {
 
 /* non-public login util function, so the credentials aren't saved on any object */
 function _login(mint, email, password, callback) {
-    return mint._get('login.event?task=L')
-    .then(function() {
-        // now, get user pod (!?)
-        return mint._form('getUserPod.xevent', {
-            username: email
-        });
+    // get user pod (!?)
+    // initializes some cookies, I guess;
+    //  it does not appear to be necessary to 
+    //  load login.event?task=L
+    return mint._form('getUserPod.xevent', {
+        username: email
     })
     .then(function(json) {
         // save the pod number (or whatever) in a cookie
