@@ -252,6 +252,26 @@ PepperMint.prototype.deleteTransaction = function(transactionId) {
 };
 
 
+/**
+ * Update the name and value of an account by its id
+ */
+PepperMint.prototype.updateAccount = function(args) {
+
+    var self = this;
+    var form = {
+        accountId: args.accountId
+      , accountName: args.accountName
+      , accountValue: args.accountValue
+      , types: 'ot'
+      , accountType: '3'
+      , accountStatus: '1'
+      , associatedLoanRadio: 'No'
+      , token: this.token
+    };
+
+    return self._form('updateAccount.xevent', form);
+};
+
 
 /*
  * Util methods
