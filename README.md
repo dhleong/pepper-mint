@@ -95,3 +95,7 @@ Args should look like:
 #### mint.deleteTransaction(transactionId)
 
 Delete a transaction by its ID
+
+#### mint.updateAccount(args)
+
+Update the name and value of an account by its ID
