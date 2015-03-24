@@ -17,7 +17,7 @@ require('pepper-mint')(user, pass)
     // return another promise
     // (or you can then() it here, of course,
     //  if you need more API calls)
-    return mint.accounts();
+    return mint.getAccounts();
 })
 .then(function(accounts) {
     
