@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/dhleong/pepper-mint",
   "dependencies": {
+    "csv-parse": "^0.1.0",
     "q": "^1.0.1",
     "request": "^2.36.0"
   }

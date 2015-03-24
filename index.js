@@ -2,14 +2,15 @@
 
 var request = require('request')
   , Q = require('q')
+  , csv = require('csv-parse')
   
   , URL_BASE = 'https://wwws.mint.com/'
   , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36'
   , BROWSER = 'chrome'
   , BROWSER_VERSION = 35
   , OS_NAME = 'mac';
-
-
+  
+  
 module.exports = Prepare;
 module.exports.setHttpService = SetHttpService;
 
@@ -152,7 +153,15 @@ PepperMint.prototype.getTags = function() {
     return this._getJsonData('tags');
 };
 
-
+/**
+ * Returns a promise that downloads all transactions. Parses
+ *  the returned CSV into a nice JSON object.
+ */
+PepperMint.prototype.downloadTransactions = function() {
+  return this._get('transactionDownload.event').then(function (body) {
+    return Q.nfcall(csv, body, {columns: true})
+  });    
+};
 
 /**
  * Returns a promise that fetches transactions,
