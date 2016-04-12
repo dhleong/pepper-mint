@@ -55,6 +55,8 @@ function _jsonify(promise) {
     return promise.then(function(body) {
         if (~body.indexOf("Session has expired."))
             throw new Error("Session has expired");
+        if (~body.indexOf("<response><empty/></response>"))
+            return { success: true };
 
         try {
             return JSON.parse(body);
@@ -251,6 +253,14 @@ PepperMint.prototype.deleteTransaction = function(transactionId) {
     });
 };
 
+/**
+ * Refresh account FI Data
+ */
+PepperMint.prototype.initiateAccountRefresh = function(){
+    return this._form('refreshFILogins.xevent', {
+        token: this.token
+    });
+};
 
 
 /*
