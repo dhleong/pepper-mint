@@ -56,7 +56,7 @@ function _jsonify(promise) {
         if (~body.indexOf("Session has expired."))
             throw new Error("Session has expired");
         if (~body.indexOf("<response><empty/></response>"))
-            return { refreshInitiated: true };
+            return { success: true };
 
         try {
             return JSON.parse(body);
