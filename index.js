@@ -3,10 +3,11 @@
 var request = require('request')
   , Q = require('q')
   
-  , URL_BASE = 'https://wwws.mint.com/'
-  , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.153 Safari/537.36'
+  , URL_BASE = 'https://mint.intuit.com/'
+  , URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/'
+  , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
   , BROWSER = 'chrome'
-  , BROWSER_VERSION = 35
+  , BROWSER_VERSION = 58
   , OS_NAME = 'mac';
 
 
@@ -25,7 +26,9 @@ var _requestService = function(args) {
  *  // do fancy stuff here
  * });
  */
-function Prepare(email, password) {
+function Prepare(email, password, cookie) {
+    var self = this;
+    self.cookie = cookie;
     return Q.Promise(function(resolve, reject) {
         var mint = new PepperMint();
         _login(mint, email, password, function(err) {
@@ -53,28 +56,40 @@ function SetHttpService(service) {
 /** wrap a Promise with JSON body parsing on success */
 function _jsonify(promise) {
     return promise.then(function(body) {
-        if (~body.indexOf("Session has expired."))
-            throw new Error("Session has expired");
-        if (~body.indexOf("<response><empty/></response>"))
-            return { success: true };
+        if (!body.iamTicket) {
+            if (~body.indexOf("Session has expired."))
+                throw new Error("Session has expired");
+            if (~body.indexOf("<response><empty/></response>"))
+                return { success: true };
 
-        try {
-            return JSON.parse(body);
-        } catch (e) {
-            console.error("Unable to parse", body);
-            throw e;
+            try {
+                return JSON.parse(body);
+            } catch (e) {
+                throw e;
+            }
         }
-    })
+        else {
+            return body;
+        }
+    });
 }
 
 /* non-public login util function, so the credentials aren't saved on any object */
 function _login(mint, email, password, callback) {
-    // get user pod (!?)
-    // initializes some cookies, I guess;
-    //  it does not appear to be necessary to 
-    //  load login.event?task=L
-    return mint._form('getUserPod.xevent', {
+    return mint._formAccounts('sign_in', {
+        namespaceId: "50000026",
+        password: password,
         username: email
+    })
+    .then(function(credentials) {
+        // get user pod (!?)
+        // initializes some cookies, I guess;
+        //  it does not appear to be necessary to 
+        //  load login.event?task=L
+        return mint._form('getUserPod.xevent', {
+            clientType: 'Mint',
+            authid: credentials.iamTicket.userId
+        });
     })
     .then(function(json) {
         // save the pod number (or whatever) in a cookie
@@ -83,12 +98,10 @@ function _login(mint, email, password, callback) {
 
         // finally, login
         return mint._form('loginUserSubmit.xevent', {
-            username: email
-          , password: password
-          , task: 'L'
-          , browser: BROWSER
-          , browserVersion: BROWSER_VERSION
-          , os: OS_NAME
+            task: 'L',
+            browser: BROWSER,
+            browserVersion: BROWSER_VERSION,
+            os: OS_NAME
         });
     })
     .then(function(json) {
@@ -100,8 +113,7 @@ function _login(mint, email, password, callback) {
 
         mint.token = json.sUser.token;
         callback(null, mint);
-    })
-    .fail(function(err) {
+    }).fail(function(err) {
         callback(err);
     });
 }
@@ -297,7 +309,7 @@ PepperMint.prototype._getJsonData = function(args) {
 
     return this._getJson('getJsonData.xevent', args)
     .then(function(json) {
-        return json.set[0].data
+        return json.set[0].data;
     });
 };
 
@@ -311,11 +323,46 @@ PepperMint.prototype._form = function(url, form) {
           , method: 'POST'
           , form: form
           , headers: {
-                Accept: 'application/json'
+              Accept: 'application/json'
               , 'User-Agent': USER_AGENT
               , 'X-Request-With': 'XMLHttpRequest'
-              , 'X-NewRelic-ID': 'UA4OVVFWGwEGV1VaBwc='
-              , 'Referrer': 'https://wwws.mint.com/login.event?task=L&messageId=1&country=US&nextPage=overview.event'
+              , 'X-NewRelic-ID': 'UA4OVVFWGwYJV1FTBAE='
+              , 'Referrer': 'https://mint.intuit.com/login.event?task=L&messageId=5&country=US'
+          }
+        }, function(err, response, body) {
+            if (err) return reject(err);
+            if (response.statusCode > 204) {
+                var error = new Error("Failed to load " + fullUrl);
+                error.response = response;
+                error.body = body;
+                return reject(error);
+            }
+            resolve(body);
+        });
+    }));
+};
+
+PepperMint.prototype._formAccounts = function(url, form) {
+    var request = this.request;
+    return _jsonify(Q.Promise(function(resolve, reject) {
+        var fullUrl = URL_BASE_ACCOUNTS + url;
+        request({
+            url: fullUrl
+          , method: 'POST'
+          , json: true,
+            body: form,
+            headers: {
+                'Cookie': this.cookie,
+                'Origin': 'https://mint.intuit.com',
+                'Accept-Language': 'en-US,en;q=0.8',
+                'Connection': 'keep-alive',
+                'intuit_locale': 'en-us',
+                'intuit_offeringid': 'Intuit.ifs.mint',
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json; charset=utf-8',
+                'Referer': 'https://mint.intuit.com/login.event?utm_medium=direct&test=Returning_User:_Credit_Score_Homepage_May_2017:Social_proof_2&cta=nav_login_dropdown',
+                'intuit_offeringenv': 'prd' 
             }
         }, function(err, response, body) {
             if (err) return reject(err);
@@ -325,11 +372,11 @@ PepperMint.prototype._form = function(url, form) {
                 error.body = body;
                 return reject(error);
             }
-
             resolve(body);
         });
     }));
 };
+
 
 PepperMint.prototype._jsonForm = function(json) {
     var reqId = '' + this.requestId++;
