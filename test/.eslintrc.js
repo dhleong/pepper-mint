@@ -1,8 +1,8 @@
 module.exports = {
     "env": {
         "es6": true,
-		"mocha": true,
-		"amd": true
+        "mocha": true,
+        "amd": true
     },
     "rules": {
         "indent": [
@@ -20,10 +20,10 @@ module.exports = {
             "error",
             "always"
         ],
-		"brace-style": [
-			"error",
-			"1tbs"
-		],
+        "brace-style": [
+            "error",
+            "1tbs"
+        ],
         "curly": [
             "error",
             "multi-line"

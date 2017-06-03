@@ -19,10 +19,10 @@ module.exports = {
         "semi": [
             "error",
             "always"
-		],
-		"brace-style": [
-			"error",
-			"1tbs"
+        ],
+        "brace-style": [
+            "error",
+            "1tbs"
         ],
         "curly": [
             "error",
