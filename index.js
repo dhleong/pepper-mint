@@ -57,18 +57,18 @@ function SetHttpService(service) {
 function _jsonify(promise) {
     return promise.then(function(body) {
         if (!body.iamTicket) {
-            if (~body.indexOf("Session has expired."))
+            if (~body.indexOf("Session has expired.")) {
                 throw new Error("Session has expired");
-            if (~body.indexOf("<response><empty/></response>"))
+            }
+            if (~body.indexOf("<response><empty/></response>")) {
                 return { success: true };
-
+            }
             try {
                 return JSON.parse(body);
             } catch (e) {
                 throw e;
             }
-        }
-        else {
+        } else {
             return body;
         }
     });
@@ -105,11 +105,12 @@ function _login(mint, email, password, callback) {
         });
     })
     .then(function(json) {
-        if (json.error && json.error.vError)
+        if (json.error && json.error.vError) {
             return callback(new Error(json.error.vError.copy));
-
-        if (!(json.sUser && json.sUser.token))
+        }
+        if (!(json.sUser && json.sUser.token)) {
             return callback(new Error("Unable to obtain token"));
+        }
 
         mint.token = json.sUser.token;
         callback(null, mint);
@@ -284,13 +285,13 @@ PepperMint.prototype._get = function(url, qs) {
     return Q.Promise(function(resolve, reject) {
         var fullUrl = URL_BASE + url;
         var args = {url: fullUrl};
-        if (qs)
-            args.qs = qs;
+        if (qs) args.qs = qs;
 
         request(args, function(err, response, body) {
             if (err) return reject(err);
-            if (200 != response.statusCode)
+            if (200 != response.statusCode) {
                 return reject(new Error("Failed to load " + fullUrl));
+            }
 
             resolve(body);
         });
@@ -303,8 +304,9 @@ PepperMint.prototype._getJson = function(url, qs) {
 
 /** Shortcut to fetch getJsonData of a single task */
 PepperMint.prototype._getJsonData = function(args) {
-    if ('string' === typeof(args))
+    if ('string' === typeof(args)) {
         args = {task: args};
+    }
     args.rnd = this._random();
 
     return this._getJson('getJsonData.xevent', args)
