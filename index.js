@@ -154,10 +154,122 @@ PepperMint.prototype.getAccounts = function() {
 };
 
 /**
+ * Get budgets. By default, fetches the budget for the current month.
+ * Alternatively, you can provide a single Date, and we will fetch
+ * the budget for the month containing that date; or you can provide
+ * two dates, and we will provide the budget for that range
+ */
+PepperMint.prototype.getBudgets = function() {
+    var date, start, end;
+    switch (arguments.length) {
+    case 0:
+        date = new Date();
+        break;
+    case 1:
+        date = arguments[0];
+        break;
+    case 2:
+        start = arguments[0];
+        end = arguments[1];
+        break;
+    }
+
+    if (date) {
+        start = new Date(date.getFullYear(), date.getMonth());
+        if (date.getMonth() == 11) {
+            end = new Date(date.getFullYear() + 1, 1);
+        } else {
+            end = new Date(date.getFullYear(), date.getMonth() + 1);
+        }
+    }
+
+    function formatDate(d) {
+        return (d.getMonth() + 1)
+            + '/' + d.getDate()
+            + '/' + d.getFullYear();
+    }
+
+    var self = this;
+    var args = {
+        startDate: formatDate(start),
+        endDate: formatDate(end),
+        rnd: this._random(),
+    };
+
+    // fetch both in parallel
+    return Q.spread([
+        this.getCategories(),
+        this._getJson('getBudget.xevent', args)
+    ], function(categories, json) {
+        var data = json.data;
+
+        var incomeKeys = Object.keys(data.income);
+        var budgetKey = Math.min.apply(Math, incomeKeys.map(function(k) {
+            return parseInt(k);
+        })).toString();
+
+        var income = data.income[budgetKey].bu;
+        var spending = data.spending[budgetKey].bu;
+
+        [income, spending].forEach(function(budgetSet) {
+            budgetSet.forEach(function(budget) {
+                budget.category = self.getCategoryNameById(
+                    categories,
+                    budget.cat
+                );
+            });
+        });
+
+        return {
+            income: income,
+            spending: spending,
+        };
+    });
+};
+
+/**
  * Promised category list fetch
  */
 PepperMint.prototype.getCategories = function() {
-    return this._getJsonData('categories');
+    if (this._categories) {
+        return Q.resolve(this._categories);
+    }
+
+    return this._getJsonData('categories')
+    .then(function(categories) {
+        // cache
+        this._categories = categories;
+        return categories;
+    });
+};
+
+/**
+ * Given the result from `getCategories()` and a category id,
+ *  return the category's name
+ */
+PepperMint.prototype.getCategoryNameById = function(categories, id) {
+    if (id === 0) return "Uncategorized";
+
+    var found = null;
+    categories.some(function(el) {
+        if (el.id === id) {
+            found = el.value;
+            return true;
+        }
+
+        if (!el.children) return false;
+
+        // there's only one level of depth, so
+        // no need for recursion
+        return el.children.some(function(kid) {
+            if (kid.id === id) {
+                found = el.value + ": " + kid.value;
+                return true;
+            }
+        });
+    });
+
+    return found;
 };
 
 /**
