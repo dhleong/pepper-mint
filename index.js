@@ -208,10 +208,10 @@ PepperMint.prototype.getBudgets = function() {
             return parseInt(k);
         })).toString();
 
-        var income = data.income[budgetKey].bu;
-        var spending = data.spending[budgetKey].bu;
+        var income = data.income[budgetKey];
+        var spending = data.spending[budgetKey];
 
-        [income, spending].forEach(function(budgetSet) {
+        [income.bu, spending.bu, income.bu, spending.ub].forEach(function(budgetSet) {
             budgetSet.forEach(function(budget) {
                 budget.category = self.getCategoryNameById(
                     categories,
@@ -221,8 +221,12 @@ PepperMint.prototype.getBudgets = function() {
         });
 
         return {
-            income: income,
-            spending: spending,
+            income: income.bu,
+            spending: spending.bu,
+            unbudgeted: {
+                income: income.ub,
+                spending: spending.ub,
+            }
         };
     });
 };
