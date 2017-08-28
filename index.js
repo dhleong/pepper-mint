@@ -434,7 +434,7 @@ PepperMint.prototype.refreshAndWaitIfNeeded = function(options) {
         if (didRefresh) {
             return self.waitForRefresh(options.maxRefreshingIds);
         } else {
-            return this;
+            return self;
         }
     });
 };
