@@ -2,6 +2,7 @@
 node_modules
 /.idea
 test/config.json
+test/test2.js
 
 # Created by https://www.gitignore.io/api/node
 

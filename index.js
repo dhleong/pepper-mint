@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 
-var request = require('request')
+var EventEmitter = require('events').EventEmitter
+  , util = require('util')
+  , request = require('request')
   , Q = require('q')
-  
+
   , URL_BASE = 'https://mint.intuit.com/'
   , URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/'
   , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
   , BROWSER = 'chrome'
   , BROWSER_VERSION = 58
-  , OS_NAME = 'mac';
+  , OS_NAME = 'mac'
+
+  , INTUIT_API_KEY = 'prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy'
+  , DEFAULT_REFRESH_AGE_MILLIS = 24 * 3600 * 100; // 24 hours
 
 
 module.exports = Prepare;
@@ -123,11 +128,19 @@ function _login(mint, email, password, callback) {
  * Main public interface object
  */
 function PepperMint() {
+    EventEmitter.call(this);
+
     this.requestId = 42; // magic number? random number?
 
     this.jar = request.jar();
     this.request = _requestService({jar: this.jar});
+
+    // NOTE: this key might not be static; if that's the case,
+    // we can load overview.event and pull it out of the embedded
+    // javascript from a JSON object field `browserAuthAPIKey`
+    this.intuitApiKey = INTUIT_API_KEY;
 }
+util.inherits(PepperMint, EventEmitter);
 
 /**
  * Returns a promise that fetches accounts
@@ -370,7 +383,6 @@ PepperMint.prototype.createTransaction = function(args) {
 };
 
 
-
 /**
  * Delete a transaction by its id
  */
@@ -382,31 +394,136 @@ PepperMint.prototype.deleteTransaction = function(transactionId) {
     });
 };
 
+
+/**
+ * Check which accounts are still refreshing (if any)
+ */
+PepperMint.prototype.getRefreshingAccountIds = function() {
+    var refreshStatusUrl = 'https://mintappservice.api.intuit.com/v1/refreshJob';
+    return this._getJson(refreshStatusUrl, null, {
+        Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0'
+    }).then(function (response) {
+        return response.refreshingCpProviderIds;
+    });
+};
+
 /**
  * Refresh account FI Data
  */
-PepperMint.prototype.initiateAccountRefresh = function(){
+PepperMint.prototype.initiateAccountRefresh = function() {
     return this._form('refreshFILogins.xevent', {
         token: this.token
     });
 };
 
+/**
+ * This is a convenience function on top of `refreshIfNeeded()`
+ *  and `waitForRefresh()`. Options is an object with keys:
+ *      - maxAgeMillis: see refreshIfNeeded()
+ *      - maxRefreshingIds: see waitForRefresh()
+ *
+ * @return A Promise that resolves to this PepperMint instance
+ *  when refreshing is done (or if it wasn't needed)
+ */
+PepperMint.prototype.refreshAndWaitIfNeeded = function(options) {
+    var self = this;
+    return this.refreshIfNeeded(
+        options.maxAgeMillis,
+        options.maxRefreshingIds
+    ).then(function(didRefresh) {
+        if (didRefresh) {
+            return self.waitForRefresh(options.maxRefreshingIds);
+        } else {
+            return this;
+        }
+    });
+};
+
+/**
+ * If any accounts haven't been updated in the last `maxAgeMillis`
+ *  milliseconds (by default, 24 hours), this will initiate an account
+ *  refresh.
+ *
+ * @param maxRefreshingIds As with `waitForRefresh()`, the max number
+ *  of refreshing accounts to allow before requiring refresh. Defaults
+ *  to 0 (IE: if *any* need refreshing, do so).
+ * @returns A promise that resolves to `true` once the refresh is
+ *  initiated, else `false`. If a refresh *will be* initiated,
+ *  a 'refreshing' *  event is emitted.
+ */
+PepperMint.prototype.refreshIfNeeded = function(maxAgeMillis, maxRefreshingIds) {
+    maxAgeMillis = maxAgeMillis || DEFAULT_REFRESH_AGE_MILLIS;
+    maxRefreshingIds = maxRefreshingIds || 0;
+
+    var self = this;
+    return this.getAccounts().then(function(accounts) {
+        var now = new Date().getTime();
+        var needRefreshing = accounts.filter(function(account) {
+            return now - account.lastUpdated > maxAgeMillis;
+        });
+
+        if (needRefreshing.length > maxRefreshingIds) {
+            self.emit('refreshing', needRefreshing);
+            return self.initiateAccountRefresh().then(function() {
+                return true;
+            });
+        } else {
+            // no refresh needed!
+            return false;
+        }
+    });
+};
+
+/**
+ * Wait until an account refresh is completed. This will poll
+ *  `getRefreshingAccountIds()` every few seconds, and emit a
+ *  'refreshing' event with the status, then finally resolve
+ *  to this PepperMint instance when done.
+ *
+ * @param maxRefreshingIds The max number of still-refreshing ids
+ *  remaining to be considered "done." This is 0 by default, of course
+ */
+PepperMint.prototype.waitForRefresh = function(maxRefreshingIds) {
+    maxRefreshingIds = maxRefreshingIds || 0;
+
+    var self = this;
+    var onIds;
+    onIds = function(ids) {
+        if (ids.length > maxRefreshingIds) return self;
+
+        self.emit('refreshing', ids);
+        return Q.delay(10000).then(function() {
+            return self.getRefreshingAccountIds().then(onIds);
+        });
+    };
+
+    return this.getRefreshingAccountIds().then(onIds);
+};
 
 /*
  * Util methods
  */
 
-PepperMint.prototype._get = function(url, qs) {
+PepperMint.prototype._get = function(url, qs, headers) {
     var request = this.request;
     return Q.Promise(function(resolve, reject) {
-        var fullUrl = URL_BASE + url;
+        var fullUrl = url.startsWith("http")
+            ? url
+            : URL_BASE + url;
         var args = {url: fullUrl};
         if (qs) args.qs = qs;
+        if (headers) args.headers = headers;
 
         request(args, function(err, response, body) {
             if (err) return reject(err);
-            if (200 != response.statusCode) {
-                return reject(new Error("Failed to load " + fullUrl));
+            if (200 !== response.statusCode) {
+                var error = new Error(
+                    "Failed to load " + fullUrl +
+                    ": " + response.statusCode
+                );
+                error.statusCode = response.statusCode;
+                error.body = body;
+                return reject(error);
             }
 
             resolve(body);
@@ -414,8 +531,8 @@ PepperMint.prototype._get = function(url, qs) {
     });
 };
 
-PepperMint.prototype._getJson = function(url, qs) {
-    return _jsonify(this._get(url, qs));
+PepperMint.prototype._getJson = function(url, qs, headers) {
+    return _jsonify(this._get(url, qs, headers));
 };
 
 /** Shortcut to fetch getJsonData of a single task */
