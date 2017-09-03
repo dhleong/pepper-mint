@@ -23,7 +23,7 @@
   "homepage": "https://github.com/dhleong/pepper-mint",
   "dependencies": {
     "q": "^1.0.1",
-    "request": "^2.36.0"
+    "request": "^2.81.0"
   },
   "devDependencies": {
     "mocha": "^3.4.2"

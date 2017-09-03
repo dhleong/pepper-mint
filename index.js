@@ -7,6 +7,7 @@ var EventEmitter = require('events').EventEmitter
 
   , URL_BASE = 'https://mint.intuit.com/'
   , URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/'
+  , URL_SESSION_INIT = 'https://pf.intuit.com/fp/tags?js=0&org_id=v60nf4oj&session_id='
   , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
   , BROWSER = 'chrome'
   , BROWSER_VERSION = 58
@@ -14,7 +15,6 @@ var EventEmitter = require('events').EventEmitter
 
   , INTUIT_API_KEY = 'prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy'
   , DEFAULT_REFRESH_AGE_MILLIS = 24 * 3600 * 100; // 24 hours
-
 
 module.exports = Prepare;
 module.exports.setHttpService = SetHttpService;
@@ -31,11 +31,11 @@ var _requestService = function(args) {
  *  // do fancy stuff here
  * });
  */
-function Prepare(email, password, cookie) {
-    var self = this;
-    self.cookie = cookie;
+function Prepare(email, password, ius_session, thx_guid) {
     return Q.Promise(function(resolve, reject) {
         var mint = new PepperMint();
+        mint._extractCookies(ius_session, thx_guid);
+
         _login(mint, email, password, function(err) {
             if (err) return reject(err);
 
@@ -81,15 +81,23 @@ function _jsonify(promise) {
 
 /* non-public login util function, so the credentials aren't saved on any object */
 function _login(mint, email, password, callback) {
-    return mint._formAccounts('sign_in', {
-        namespaceId: "50000026",
-        password: password,
-        username: email
+    return mint._getSessionCookies()
+    .then(function(sessionCookies) {
+        // initialize the session
+        Object.keys(sessionCookies).forEach(function(cookie) {
+            mint._setCookie(cookie, sessionCookies[cookie]);
+        });
+        return mint._get(URL_SESSION_INIT + sessionCookies.ius_session);
+    }).then(function() {
+        return mint._formAccounts('sign_in', {
+            password: password,
+            username: email
+        });
     })
     .then(function(credentials) {
         // get user pod (!?)
         // initializes some cookies, I guess;
-        //  it does not appear to be necessary to 
+        //  it does not appear to be necessary to
         //  load login.event?task=L
         return mint._form('getUserPod.xevent', {
             clientType: 'Mint',
@@ -504,6 +512,31 @@ PepperMint.prototype.waitForRefresh = function(maxRefreshingIds) {
  * Util methods
  */
 
+PepperMint.prototype._extractCookies = function(ius_session, thx_guid) {
+    if (ius_session && thx_guid) {
+        // both tokens were provided!
+        this._sessionCookies = {
+            ius_session: ius_session
+          , thx_guid: thx_guid
+        };
+    } else if (ius_session && !thx_guid
+            && ius_session.indexOf('ius_session') !== -1) {
+        // attempt backwards compatibility with old `cookies` arg
+        var tryMatch = function(regex) {
+            var m = ius_session.match(regex);
+            if (m) return m[1];
+        };
+        this._sessionCookies = {
+            ius_session: tryMatch(/ius_session=([^;]+)/)
+          , thx_guid: tryMatch(/thx_guid=([^;]+)/)
+        };
+    } else {
+        // nothing at all
+        this._sessionCookies = {};
+    }
+};
+
+
 PepperMint.prototype._get = function(url, qs, headers) {
     var request = this.request;
     return Q.Promise(function(resolve, reject) {
@@ -548,6 +581,17 @@ PepperMint.prototype._getJsonData = function(args) {
     });
 };
 
+PepperMint.prototype._getSessionCookies = function() {
+    if (this._sessionCookies.ius_session) {
+        return Q.resolve(this._sessionCookies);
+    }
+
+    return Q.reject(new Error(
+        "ius_session/thx_guid were not provided, and unable to " +
+        "load chromedriver + selenium>"
+    ));
+};
+
 
 PepperMint.prototype._form = function(url, form) {
     var request = this.request;
@@ -584,10 +628,9 @@ PepperMint.prototype._formAccounts = function(url, form) {
         request({
             url: fullUrl
           , method: 'POST'
-          , json: true,
-            body: form,
+          , json: true
+          , body: form,
             headers: {
-                'Cookie': this.cookie,
                 'Origin': 'https://mint.intuit.com',
                 'Accept-Language': 'en-US,en;q=0.8',
                 'Connection': 'keep-alive',
@@ -597,7 +640,7 @@ PepperMint.prototype._formAccounts = function(url, form) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json; charset=utf-8',
                 'Referer': 'https://mint.intuit.com/login.event?utm_medium=direct&test=Returning_User:_Credit_Score_Homepage_May_2017:Social_proof_2&cta=nav_login_dropdown',
-                'intuit_offeringenv': 'prd' 
+                'intuit_offeringenv': 'prd'
             }
         }, function(err, response, body) {
             if (err) return reject(err);
@@ -632,5 +675,13 @@ PepperMint.prototype._jsonForm = function(json) {
 
 PepperMint.prototype._random = function() {
     return new Date().getTime();
+};
+
+PepperMint.prototype._setCookie = function(key, val) {
+    var str = key + "=" + val;
+
+    this.jar.setCookie(str, URL_BASE);
+    this.jar.setCookie(str, URL_BASE_ACCOUNTS);
+    this.jar.setCookie(str, URL_SESSION_INIT);
 };
 
