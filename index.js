@@ -521,7 +521,7 @@ PepperMint.prototype.waitForRefresh = function(maxRefreshingIds) {
 PepperMint.prototype._extractCookies = function(ius_session, thx_guid) {
     if (ius_session && thx_guid) {
         // both tokens were provided!
-        this._sessionCookies = {
+        this.sessionCookies = {
             ius_session: ius_session
           , thx_guid: thx_guid
         };
@@ -532,13 +532,13 @@ PepperMint.prototype._extractCookies = function(ius_session, thx_guid) {
             var m = ius_session.match(regex);
             if (m) return m[1];
         };
-        this._sessionCookies = {
+        this.sessionCookies = {
             ius_session: tryMatch(/ius_session=([^;]+)/)
           , thx_guid: tryMatch(/thx_guid=([^;]+)/)
         };
     } else {
         // nothing at all
-        this._sessionCookies = {};
+        this.sessionCookies = {};
     }
 };
 
@@ -588,8 +588,8 @@ PepperMint.prototype._getJsonData = function(args) {
 };
 
 PepperMint.prototype._getSessionCookies = function(email, password) {
-    if (this._sessionCookies.ius_session) {
-        return Q.resolve(this._sessionCookies);
+    if (this.sessionCookies.ius_session) {
+        return Q.resolve(this.sessionCookies);
     }
 
     var driver = new webdriver.Builder()

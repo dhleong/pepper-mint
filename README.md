@@ -20,14 +20,14 @@ require('pepper-mint')(user, pass, cookie)
     return mint.getAccounts();
 })
 .then(function(accounts) {
-    
+
     // accounts is the array of account objects
     accounts.forEach(function(account) {
         // EG: "Bank of America", "Savings", 1234567
         console.log(account.fiName, account.accountName, account.accountId);
     });
 })
-.fail(function(err) {
+.catch(function(err) {
     console.error("Boo :(", err);
 });
 ```
@@ -35,29 +35,46 @@ require('pepper-mint')(user, pass, cookie)
 #### Mint Cookie
 
 Because of an update to the authorization flow of Mint.com, the API now
-requires a cookie which is passed to the *pepper-mint* library as
-a string.
+requires a couple cookies, which are passed to the *pepper-mint* library as
+a string. These are called `ius_session` and `thx_guid`.
 
-To get the cookie, go to the mint sign-in page in Chrome, open Developer
-Tools, and select the Network tab. Make sure "Record network log" is on
-(top left button in the menu) and sign in.
+To get the value of these cookies, you can use Chrome and login to Mint.com,
+then open the Developer Tools and check the Application tab. On the left
+should be an item called Cookies, which you can expand to see
+`https://mint.intuit.com` and `https://pf.intuit.com`, at least. `ius_session`
+can be found on the former, and `thx_guid` can be found on the latter.
 
-Then in the network tab, you will find an entry for "sign\_in" (see
-picture below). Click on the entry and in the "Headers" tab on the right,
-find the "Cookie" field of the "Request Headers" section and copy it for
-use with the API.
+You can pass these separately as:
 
-![Get Mint
-cookie](https://cloud.githubusercontent.com/assets/2680142/26742089/38c827d4-47aa-11e7-8f49-df3725805e36.png)
+```javascript
+require('pepper-mint')(username, password, ius_session, thx_guid)
+```
 
-NOTE: The cookie has double quotes in it, so if you want to store it using
-double quotes, you must escape it first with a tool like
-[this](https://www.freeformatter.com/json-escape.html)
+or as a cookie-style string (for backwards compatibility):
 
-Also, it is unclear how long the cookie lasts, or if there is a better way
-for retrieving the cookie. It seems the cookie lasts at least half a day,
-but in the future, it could be improved by getting the cookie through
-a headless browser.
+```javascript
+require('pepper-mint')(username, password,
+    `ius_session=${ius_session};thx_guid=${thx_guid}`)
+```
+
+Furthermore, if you don't want to extract them by hand at all, *pepper-mint*
+includes a mechanism to drive a Chrome browser and extract it automatically---just
+be aware that using this method will probably require you to input a two-factor
+auth code. If you want to persist the cookies fetched by this method, they will
+be stored as `.sessionCookies` on the Mint instance:
+
+```javascript
+require('pepper-mint')(username, password)
+.then(function(mint) {
+    // NOTE: this is spelled out to clarify the format
+    // of the sessionCookies property
+    persistCookies({
+        ius_session: mint.sessionCookies.ius_session,
+        thx_guid: mint.sessionCookies.thx_guid,
+    });
+});
+```
+
 
 ### API
 
@@ -74,7 +91,7 @@ return a Promise. In this context, "returns" is a shorthand to mean
 
 #### mint.getAccounts()
 
-Returns an array of Accounts. 
+Returns an array of Accounts.
 
 #### mint.getCategories()
 
@@ -92,7 +109,7 @@ optional.
 
 #### mint.createTransaction(args)
 
-Create a new cache transaction. 
+Create a new cash transaction.
 
 NB: There is currently very little arg validation,
  and the server seems to silently reject issues, too :(
