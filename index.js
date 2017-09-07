@@ -7,6 +7,7 @@ var EventEmitter = require('events').EventEmitter
 
   , URL_BASE = 'https://mint.intuit.com/'
   , URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/'
+  , URL_LOGIN = URL_BASE + 'login.event'
   , URL_SESSION_INIT = 'https://pf.intuit.com/fp/tags?js=0&org_id=v60nf4oj&session_id='
   , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
   , BROWSER = 'chrome'
@@ -15,6 +16,11 @@ var EventEmitter = require('events').EventEmitter
 
   , INTUIT_API_KEY = 'prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy'
   , DEFAULT_REFRESH_AGE_MILLIS = 24 * 3600 * 100; // 24 hours
+
+require('chromedriver');
+var webdriver = require('selenium-webdriver')
+  , By = webdriver.By
+  , until = webdriver.until;
 
 module.exports = Prepare;
 module.exports.setHttpService = SetHttpService;
@@ -81,7 +87,7 @@ function _jsonify(promise) {
 
 /* non-public login util function, so the credentials aren't saved on any object */
 function _login(mint, email, password, callback) {
-    return mint._getSessionCookies()
+    return mint._getSessionCookies(email, password)
     .then(function(sessionCookies) {
         // initialize the session
         Object.keys(sessionCookies).forEach(function(cookie) {
@@ -127,7 +133,7 @@ function _login(mint, email, password, callback) {
 
         mint.token = json.sUser.token;
         callback(null, mint);
-    }).fail(function(err) {
+    }).catch(function(err) {
         callback(err);
     });
 }
@@ -581,15 +587,53 @@ PepperMint.prototype._getJsonData = function(args) {
     });
 };
 
-PepperMint.prototype._getSessionCookies = function() {
+PepperMint.prototype._getSessionCookies = function(email, password) {
     if (this._sessionCookies.ius_session) {
         return Q.resolve(this._sessionCookies);
     }
 
-    return Q.reject(new Error(
-        "ius_session/thx_guid were not provided, and unable to " +
-        "load chromedriver + selenium>"
-    ));
+    var driver = new webdriver.Builder()
+        .forBrowser('chrome')
+        .build();
+
+    if (!driver) {
+        return Q.reject(new Error(
+            "ius_session/thx_guid were not provided, and unable to " +
+            "load chromedriver + selenium>"
+        ));
+    }
+
+    var sessionCookies = {};
+
+    driver.get(URL_LOGIN);
+    driver.wait(until.elementLocated(By.id("ius-sign-in-submit-btn")));
+    driver.findElement(By.id("ius-userid")).sendKeys(email);
+    driver.findElement(By.id("ius-password")).sendKeys(password);
+    driver.findElement(By.id("ius-sign-in-submit-btn")).submit();
+
+    // we will probably need 2fa... wait until actually logged in
+    driver.wait(until.urlIs(URL_BASE + "overview.event"));
+
+    // get ius_session here:
+    driver.get("http://accounts.intuit.com");
+    return driver.manage().getCookie("ius_session").then(function(cookie) {
+        if (!cookie) {
+            driver.close();
+            throw new Error("ius_session not provided, and couldn't be retrieved");
+        }
+
+        sessionCookies.ius_session = cookie.value;
+        driver.get(URL_SESSION_INIT + sessionCookies.ius_session);
+        return driver.manage().getCookie("thx_guid");
+    }).then(function(cookie) {
+        driver.close();
+        if (!cookie) {
+            throw new Error("thx_guid not provided, and couldn't be retrieved");
+        }
+
+        sessionCookies.thx_guid = cookie.value;
+        return sessionCookies;
+    });
 };
 
 
