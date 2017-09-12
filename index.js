@@ -30,6 +30,39 @@ var _requestService = function(args) {
     return request.defaults(args);
 };
 
+/** Create a function that will cache the result of callback(mint) */
+function cacheAs(name, callback) {
+    return function() {
+        var self = this;
+        var cached = this._cache[name];
+
+        // TODO probably, limit cache duration
+        if (!cached) {
+            return callback(this).then(function(result) {
+                self._cache[name] = result;
+                return result;
+            });
+        }
+
+        return Q.resolve(cached);
+    };
+}
+
+/**
+ * Coerce the "doneRefreshing" arg passed to various functions
+ *  into the appropriate predicate
+ */
+function coerceDoneRefreshing(arg) {
+    if (arg === undefined || typeof(arg) === 'number') {
+        var maxRefreshingIds = arg || 0;
+        return function(ids) {
+            return ids.length <= maxRefreshingIds;
+        };
+    }
+
+    return arg;
+}
+
 /**
  * Public "login" interface. Eg:
  * require('pepper-mint')(user, password)
@@ -153,6 +186,8 @@ function PepperMint() {
     // we can load overview.event and pull it out of the embedded
     // javascript from a JSON object field `browserAuthAPIKey`
     this.intuitApiKey = INTUIT_API_KEY;
+
+    this._cache = {};
 }
 util.inherits(PepperMint, EventEmitter);
 
@@ -164,21 +199,24 @@ PepperMint.prototype.getAccounts = function() {
     return self._jsonForm({
         args: {
             types: [
-                "BANK", 
-                "CREDIT", 
-                "INVESTMENT", 
-                "LOAN", 
-                "MORTGAGE", 
-                "OTHER_PROPERTY", 
-                "REAL_ESTATE", 
-                "VEHICLE", 
+                "BANK",
+                "CREDIT",
+                "INVESTMENT",
+                "LOAN",
+                "MORTGAGE",
+                "OTHER_PROPERTY",
+                "REAL_ESTATE",
+                "VEHICLE",
                 "UNCLASSIFIED"
             ]
-        }, 
-        service: "MintAccountService", 
+        },
+        service: "MintAccountService",
         task: "getAccountsSorted"
     });
 };
+PepperMint.prototype.accounts = cacheAs('accounts', function(mint) {
+    return mint.getAccounts();
+});
 
 /**
  * Get budgets. By default, fetches the budget for the current month.
@@ -225,7 +263,7 @@ PepperMint.prototype.getBudgets = function() {
 
     // fetch both in parallel
     return Q.spread([
-        this.getCategories(),
+        this.categories(),
         this._getJson('getBudget.xevent', args)
     ], function(categories, json) {
         var data = json.data;
@@ -262,17 +300,12 @@ PepperMint.prototype.getBudgets = function() {
  * Promised category list fetch
  */
 PepperMint.prototype.getCategories = function() {
-    if (this._categories) {
-        return Q.resolve(this._categories);
-    }
-
-    return this._getJsonData('categories')
-    .then(function(categories) {
-        // cache
-        this._categories = categories;
-        return categories;
-    });
+    return this._getJsonData('categories');
 };
+PepperMint.prototype.categories = cacheAs('categories', function(mint) {
+    return mint.getCategories();
+});
+
 
 /**
  * Given the result from `getCategories()` and a category id,
@@ -422,6 +455,28 @@ PepperMint.prototype.getRefreshingAccountIds = function() {
 };
 
 /**
+ * Convenience to map the result of getRefreshingAccountIds() to
+ * the actual Accounts (IE: as returned from .accounts()).
+ *
+ * NOTE: This is actually not strictly accurate right now. While
+ * Account instances will be returned, they may not necessarily
+ * be the ones currently refreshing. If you need the
+ * *actual accounts*, and don't mind spamming the getAccount()
+ * API, that may be a better way to do this.
+ */
+PepperMint.prototype.getRefreshingAccounts = function() {
+    var self = this;
+    return this.accounts().then(function(accounts) {
+        return self.getRefreshingAccountIds().then(function(ids) {
+            // NOTE ids is "refreshingCpProviderIds," NOT account ids.
+            // There doesn't seem to be an obvious corrolation without
+            // an additional API call, so we just... fake it.
+            return accounts.slice(0, ids.length);
+        });
+    });
+};
+
+/**
  * Refresh account FI Data
  */
 PepperMint.prototype.initiateAccountRefresh = function() {
@@ -434,19 +489,21 @@ PepperMint.prototype.initiateAccountRefresh = function() {
  * This is a convenience function on top of `refreshIfNeeded()`
  *  and `waitForRefresh()`. Options is an object with keys:
  *      - maxAgeMillis: see refreshIfNeeded()
- *      - maxRefreshingIds: see waitForRefresh()
+ *      - doneRefreshing: see waitForRefresh()
+ *      - maxRefreshingIds: Deprecated; see waitForRefresh()
  *
  * @return A Promise that resolves to this PepperMint instance
  *  when refreshing is done (or if it wasn't needed)
  */
 PepperMint.prototype.refreshAndWaitIfNeeded = function(options) {
     var self = this;
+    var waitArg = options.doneRefreshing || options.maxRefreshingIds;
     return this.refreshIfNeeded(
         options.maxAgeMillis,
-        options.maxRefreshingIds
+        waitArg
     ).then(function(didRefresh) {
         if (didRefresh) {
-            return self.waitForRefresh(options.maxRefreshingIds);
+            return self.waitForRefresh(waitArg);
         } else {
             return self;
         }
@@ -458,60 +515,63 @@ PepperMint.prototype.refreshAndWaitIfNeeded = function(options) {
  *  milliseconds (by default, 24 hours), this will initiate an account
  *  refresh.
  *
- * @param maxRefreshingIds As with `waitForRefresh()`, the max number
- *  of refreshing accounts to allow before requiring refresh. Defaults
- *  to 0 (IE: if *any* need refreshing, do so).
+ * @param doneRefreshing As with `waitForRefresh()`.
  * @returns A promise that resolves to `true` once the refresh is
  *  initiated, else `false`. If a refresh *will be* initiated,
- *  a 'refreshing' *  event is emitted.
+ *  a 'refreshing' event is emitted with a list of the accounts being
+ *  refreshed.
  */
-PepperMint.prototype.refreshIfNeeded = function(maxAgeMillis, maxRefreshingIds) {
+PepperMint.prototype.refreshIfNeeded = function(maxAgeMillis, doneRefreshing) {
     maxAgeMillis = maxAgeMillis || DEFAULT_REFRESH_AGE_MILLIS;
-    maxRefreshingIds = maxRefreshingIds || 0;
+    doneRefreshing = coerceDoneRefreshing(doneRefreshing);
 
     var self = this;
-    return this.getAccounts().then(function(accounts) {
+    return this.accounts().then(function(accounts) {
         var now = new Date().getTime();
         var needRefreshing = accounts.filter(function(account) {
             return now - account.lastUpdated > maxAgeMillis;
         });
 
-        if (needRefreshing.length > maxRefreshingIds) {
+        if (doneRefreshing(needRefreshing)) {
+            // no refresh needed!
+            return false;
+        } else {
             self.emit('refreshing', needRefreshing);
             return self.initiateAccountRefresh().then(function() {
                 return true;
             });
-        } else {
-            // no refresh needed!
-            return false;
         }
     });
 };
 
 /**
  * Wait until an account refresh is completed. This will poll
- *  `getRefreshingAccountIds()` every few seconds, and emit a
+ *  `getRefreshingAccount()` every few seconds, and emit a
  *  'refreshing' event with the status, then finally resolve
  *  to this PepperMint instance when done.
  *
- * @param maxRefreshingIds The max number of still-refreshing ids
- *  remaining to be considered "done." This is 0 by default, of course
+ * @param doneRefreshing A predicate function that takes a list of accounts
+ *  and returns True if refreshing is "done." If not provided,
+ *  this defaults to checking for an empty list---that is, there are no
+ *  more accounts being refreshed. For backwards compatibility, this
+ *  may also be the max number of still-refreshing ids remaining to
+ *  be considered "done." This is 0 by default, of course.
  */
-PepperMint.prototype.waitForRefresh = function(maxRefreshingIds) {
-    maxRefreshingIds = maxRefreshingIds || 0;
+PepperMint.prototype.waitForRefresh = function(doneRefreshing) {
+    doneRefreshing = coerceDoneRefreshing(doneRefreshing);
 
     var self = this;
-    var onIds;
-    onIds = function(ids) {
-        if (ids.length <= maxRefreshingIds) return self;
+    var onAccounts;
+    onAccounts = function(accounts) {
+        if (doneRefreshing(accounts)) return self;
 
-        self.emit('refreshing', ids);
+        self.emit('refreshing', accounts);
         return Q.delay(10000).then(function() {
-            return self.getRefreshingAccountIds().then(onIds);
+            return self.getRefreshingAccounts().then(onAccounts);
         });
     };
 
-    return this.getRefreshingAccountIds().then(onIds);
+    return this.getRefreshingAccounts().then(onAccounts);
 };
 
 /*
