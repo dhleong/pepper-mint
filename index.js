@@ -503,7 +503,7 @@ PepperMint.prototype.waitForRefresh = function(maxRefreshingIds) {
     var self = this;
     var onIds;
     onIds = function(ids) {
-        if (ids.length > maxRefreshingIds) return self;
+        if (ids.length <= maxRefreshingIds) return self;
 
         self.emit('refreshing', ids);
         return Q.delay(10000).then(function() {
