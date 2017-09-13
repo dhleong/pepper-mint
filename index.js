@@ -8,6 +8,7 @@ var EventEmitter = require('events').EventEmitter
   , URL_BASE = 'https://mint.intuit.com/'
   , URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/'
   , URL_LOGIN = URL_BASE + 'login.event'
+  , URL_SERVICE_BASE = 'https://mintappservice.api.intuit.com/v1'
   , URL_SESSION_INIT = 'https://pf.intuit.com/fp/tags?js=0&org_id=v60nf4oj&session_id='
   , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
   , BROWSER = 'chrome'
@@ -29,6 +30,10 @@ module.exports.setHttpService = SetHttpService;
 var _requestService = function(args) {
     return request.defaults(args);
 };
+
+function accountIsActive(account) {
+    return account.isActive;
+}
 
 /** Create a function that will cache the result of callback(mint) */
 function cacheAs(name, callback) {
@@ -443,38 +448,57 @@ PepperMint.prototype.deleteTransaction = function(transactionId) {
 
 
 /**
- * Check which accounts are still refreshing (if any)
+ * Check which accounts are still refreshing (if any).
+ *
+ * NOTE: This actually returns *provider ids*, not account IDs.
  */
 PepperMint.prototype.getRefreshingAccountIds = function() {
-    var refreshStatusUrl = 'https://mintappservice.api.intuit.com/v1/refreshJob';
-    return this._getJson(refreshStatusUrl, null, {
-        Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0'
-    }).then(function (response) {
+    return this._getIntuitJson('/refreshJob').then(function(response) {
         return response.refreshingCpProviderIds;
     });
 };
 
 /**
  * Convenience to map the result of getRefreshingAccountIds() to
- * the actual Accounts (IE: as returned from .accounts()).
+ * the actual Accounts (IE: similar to that returned from .accounts()).
  *
- * NOTE: This is actually not strictly accurate right now. While
- * Account instances will be returned, they may not necessarily
- * be the ones currently refreshing. If you need the
- * *actual accounts*, and don't mind spamming the getAccount()
- * API, that may be a better way to do this.
+ * NOTE: The actual Account instances will be those from providers(),
+ *  and so some fields will likely be slightly different than those
+ *  from .accounts().
  */
 PepperMint.prototype.getRefreshingAccounts = function() {
     var self = this;
-    return this.accounts().then(function(accounts) {
+    return this.providers().then(function(providers) {
+        const providerById = providers.reduce(function(m, provider) {
+            m[provider.cpProviderId] = provider;
+            return m;
+        }, {});
+
         return self.getRefreshingAccountIds().then(function(ids) {
-            // NOTE ids is "refreshingCpProviderIds," NOT account ids.
-            // There doesn't seem to be an obvious corrolation without
-            // an additional API call, so we just... fake it.
-            return accounts.slice(0, ids.length);
+            // no indication of actually which accounts are being
+            // refreshed, so we just assume all for a provider
+            return ids.map(function(id) {
+                return providerById[id];
+            }).reduce(function(result, provider) {
+                return result.concat(provider.providerAccounts);
+            }, []).filter(accountIsActive);
         });
     });
 };
+
+/**
+ * Get a list of the financial data providers available to this
+ *  account. Each provider can indicate the Accounts it provides
+ *  via `.providerAccounts`
+ */
+PepperMint.prototype.getProviders = function() {
+    return this._getIntuitJson('/providers').then(function(response) {
+        return response.providers;
+    });
+};
+PepperMint.prototype.providers = cacheAs('providers', function(mint) {
+    return mint.getProviders();
+});
 
 /**
  * Refresh account FI Data
@@ -530,7 +554,7 @@ PepperMint.prototype.refreshIfNeeded = function(maxAgeMillis, doneRefreshing) {
         var now = new Date().getTime();
         var needRefreshing = accounts.filter(function(account) {
             return now - account.lastUpdated > maxAgeMillis;
-        });
+        }).filter(accountIsActive);
 
         if (doneRefreshing(needRefreshing)) {
             // no refresh needed!
@@ -632,6 +656,12 @@ PepperMint.prototype._get = function(url, qs, headers) {
 
 PepperMint.prototype._getJson = function(url, qs, headers) {
     return _jsonify(this._get(url, qs, headers));
+};
+
+PepperMint.prototype._getIntuitJson = function(urlPart) {
+    return this._getJson(URL_SERVICE_BASE + urlPart, null, {
+        Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0'
+    });
 };
 
 /** Shortcut to fetch getJsonData of a single task */
