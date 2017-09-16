@@ -68,6 +68,26 @@ function coerceDoneRefreshing(arg) {
     return arg;
 }
 
+function stringifyDate(date) {
+    if (typeof(date) === 'string') {
+        // just assume it's formatted correctly
+        return date;
+    }
+
+    let month = date.getMonth() + 1;
+    if (month < 10) {
+        month = `0${month}`;
+    }
+
+    let day = date.getDate();
+    if (day < 10) {
+        day = `0${day}`;
+    }
+
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+}
+
 /**
  * Public "login" interface. Eg:
  * require('pepper-mint')(user, password)
@@ -361,6 +381,8 @@ PepperMint.prototype.getTags = function() {
  * , query: [  // optional
  *      "coffee",
  *   ]
+ * , startDate: new Date(), // optional
+ * , endDate: new Date(), // optional
  * }
  */
 PepperMint.prototype.getTransactions = function(args) {
@@ -384,6 +406,8 @@ PepperMint.prototype.getTransactions = function(args) {
       , acctChanged: 'T'  // ?
       , query: query.join(',')
       , queryNew: ""
+      , startDate: stringifyDate(args.startDate)
+      , endDate: stringifyDate(args.endDate)
       , task: 'transactions'
     });
 };
@@ -420,7 +444,7 @@ PepperMint.prototype.createTransaction = function(args) {
     var form = {
         amount: args.amount
       , cashTxnType: 'on'
-      , date: args.date
+      , date: stringifyDate(args.date)
       , isInvestment: args.isInvestment
       , merchant: args.merchant
       , mtAccount: args.accountId
