@@ -355,19 +355,35 @@ PepperMint.prototype.getTags = function() {
  *  optionally filtered by account and offset
  *
  * Args should look like: {
- *  accountId: 1234 // optional
- *  offset: 0 // optional
+ *   accountId: 1234 // optional
+ * , category: { id: 7 } // optional; the id itself also works
+ * , offset: 0 // optional
+ * , query: [  // optional
+ *      "coffee",
+ *   ]
  * }
  */
 PepperMint.prototype.getTransactions = function(args) {
-    
     args = args || {};
     var offset = args.offset || 0;
+    var query = args.query || [];
+    if (!Array.isArray(query)) {
+        query = [query];
+    }
+    if (args.category && typeof(args.category) === 'object') {
+        args.category = args.category.id;
+    }
+    if (args.category) {
+        query.push('category:"' + args.category + '"');
+    }
+
     return this._getJsonData({
         accountId: args.accountId
       , offset: offset
       , comparableType: 8 // ?
       , acctChanged: 'T'  // ?
+      , query: query.join(',')
+      , queryNew: ""
       , task: 'transactions'
     });
 };
