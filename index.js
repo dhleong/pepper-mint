@@ -857,5 +857,8 @@ PepperMint.prototype._setCookie = function(key, val) {
     this.jar.setCookie(str, URL_BASE);
     this.jar.setCookie(str, URL_BASE_ACCOUNTS);
     this.jar.setCookie(str, URL_SESSION_INIT);
+
+    // also provide for users to persist
+    this.sessionCookies[key] = val;
 };
 
