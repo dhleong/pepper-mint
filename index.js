@@ -519,7 +519,9 @@ PepperMint.prototype.getRefreshingAccounts = function() {
             // refreshed, so we just assume all for a provider
             return ids.map(function(id) {
                 return providerById[id];
-            }).reduce(function(result, provider) {
+            })
+            .filter(provider => provider) // unknown provider...?
+            .reduce(function(result, provider) {
                 return result.concat(provider.providerAccounts);
             }, []).filter(accountIsActive);
         });
