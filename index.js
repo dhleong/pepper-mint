@@ -23,6 +23,21 @@ var webdriver = require('selenium-webdriver')
   , By = webdriver.By
   , until = webdriver.until;
 
+var MONTH_NUMBERS = {
+    Jan: '01'
+  , Feb: '02'
+  , Mar: '03'
+  , Apr: '04'
+  , May: '05'
+  , Jun: '06'
+  , Jul: '07'
+  , Aug: '08'
+  , Sep: '09'
+  , Oct: '10'
+  , Nov: '11'
+  , Dec: '12'
+};
+
 module.exports = Prepare;
 module.exports.setHttpService = SetHttpService;
 
@@ -68,24 +83,47 @@ function coerceDoneRefreshing(arg) {
     return arg;
 }
 
-function stringifyDate(date) {
-    if (typeof(date) === 'string') {
-        // just assume it's formatted correctly
+function ensureDateStringFormatted(date) {
+    if (date.indexOf('/') !== -1) {
+        // it's good! (probably)
         return date;
     }
 
-    let month = date.getMonth() + 1;
+    var parts = date.split(' ');
+    if (parts.length !== 2) {
+        // not something we can handle; just return as-is
+        return date;
+    }
+
+    var month = MONTH_NUMBERS[parts[0]];
+    if (!month) {
+        // as above
+        return date;
+    }
+
+    var day = parts[1];
+    var year = new Date().getFullYear();
+
+    return month + '/' + day + '/' + year;
+}
+
+function stringifyDate(date) {
+    if (typeof(date) === 'string') {
+        return ensureDateStringFormatted(date);
+    }
+
+    var month = date.getMonth() + 1;
     if (month < 10) {
         month = `0${month}`;
     }
 
-    let day = date.getDate();
+    var day = date.getDate();
     if (day < 10) {
         day = `0${day}`;
     }
 
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
+    var year = date.getFullYear();
+    return month + '/' + day + '/' + year;
 }
 
 /**
@@ -486,6 +524,41 @@ PepperMint.prototype.deleteTransaction = function(transactionId) {
     });
 };
 
+/**
+ * Edit a transaction.
+ *
+ * Args should look like: {
+ *   id: '1234:0'
+ *   category: 'Bills & Utilities',
+ *   categoryId: 707,
+ *   date: "MM/DD/YYYY"
+ *   merchant: "Junky's Quality Parts",
+ * }
+ *
+ * Note that the format of the category information
+ *  is different from that for createTransaction. This is
+ *  to make it simple to just use a modified result from
+ *  `getTransactions()`
+ */
+PepperMint.prototype.editTransaction = function(args) {
+    var form = {
+        amount: ''
+      , category: args.category
+      , catId: args.categoryId
+      , categoryTypeFilter: 'null'
+      , date: stringifyDate(args.date)
+      , merchant: args.merchant
+      , task: 'simpleEdit'
+      , txnId: args.id
+
+      , token: this.token
+    };
+
+    // TODO support tags, adding notes?
+    // That form is much more complicated...
+
+    return this._form('updateTransaction.xevent', form);
+};
 
 /**
  * Check which accounts are still refreshing (if any).
@@ -509,7 +582,7 @@ PepperMint.prototype.getRefreshingAccountIds = function() {
 PepperMint.prototype.getRefreshingAccounts = function() {
     var self = this;
     return this.providers().then(function(providers) {
-        const providerById = providers.reduce(function(m, provider) {
+        var providerById = providers.reduce(function(m, provider) {
             m[provider.cpProviderId] = provider;
             return m;
         }, {});
