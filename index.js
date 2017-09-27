@@ -132,18 +132,28 @@ function stringifyDate(date) {
  * .then(function(mint) {
  *  // do fancy stuff here
  * });
+ *
+ * If you need access to events before login is completed,
+ *  the PepperMint class instance is stored on the returned
+ *  Promise as `.mint`.
  */
 function Prepare(email, password, ius_session, thx_guid) {
-    return Q.Promise(function(resolve, reject) {
-        var mint = new PepperMint();
-        mint._extractCookies(ius_session, thx_guid);
+    var mint = new PepperMint();
+    var promise = Q.Promise(function(resolve, reject) {
+        // start login next frame so clients can register event handlers
+        // for browser-login
+        setTimeout(function() {
+            mint._extractCookies(ius_session, thx_guid);
 
-        _login(mint, email, password, function(err) {
-            if (err) return reject(err);
+            _login(mint, email, password, function(err) {
+                if (err) return reject(err);
 
-            resolve(mint);
-        });
+                resolve(mint);
+            });
+        }, 0);
     });
+    promise.mint = mint;
+    return promise;
 }
 
 /**
@@ -236,6 +246,21 @@ function _login(mint, email, password, callback) {
 
 /**
  * Main public interface object
+ *
+ * Events:
+ *  - `refreshing`: Emitted after a call to waitForRefresh()
+ *                  or refreshIfNeeded() with a list of accounts
+ *                  that are being refreshed.
+ *  - `browser-login`: Emitted at various stages when a browser
+ *                     is used as part of login in order to get
+ *                     necessary cookies. The argument is a string
+ *                     indicating the current state, one of:
+ *          - `init`: Browser login has started
+ *          - `login`: Waiting for login to complete; it is likely
+ *                     waiting for the user to complete two-factor auth
+ *          - `cookie`: Auth cookies are being fetched
+ *          - `done`: Browser login is done, and PepperMint will proceed
+ *                    with normal initialization
  */
 function PepperMint() {
     EventEmitter.call(this);
@@ -808,6 +833,7 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
         ));
     }
 
+    this.emit('browser-login', 'init');
     var sessionCookies = {};
 
     driver.get(URL_LOGIN);
@@ -818,10 +844,13 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
 
     // we will probably need 2fa... wait until actually logged in
     driver.wait(until.urlIs(URL_BASE + "overview.event"));
+    this.emit('browser-login', 'login');
 
     // get ius_session here:
     driver.get("http://accounts.intuit.com");
+    var self = this;
     return driver.manage().getCookie("ius_session").then(function(cookie) {
+        self.emit('browser-login', 'cookie');
         if (!cookie) {
             driver.close();
             throw new Error("ius_session not provided, and couldn't be retrieved");
@@ -836,6 +865,7 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
             throw new Error("thx_guid not provided, and couldn't be retrieved");
         }
 
+        self.emit('browser-login', 'done');
         sessionCookies.thx_guid = cookie.value;
         return sessionCookies;
     });
