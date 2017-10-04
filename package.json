@@ -1,6 +1,6 @@
 {
   "name": "pepper-mint",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "An unofficial API for mint.com",
   "main": "index.js",
   "scripts": {
@@ -28,6 +28,7 @@
     "selenium-webdriver": "^3.5.0"
   },
   "devDependencies": {
+    "chai": "^4.1.2",
     "mocha": "^3.4.2"
   }
 }

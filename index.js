@@ -40,6 +40,7 @@ var MONTH_NUMBERS = {
 
 module.exports = Prepare;
 module.exports.setHttpService = SetHttpService;
+module.exports.PepperMint = PepperMint;
 
 // default http service factory
 var _requestService = function(args) {
@@ -102,7 +103,7 @@ function ensureDateStringFormatted(date) {
     }
 
     var day = parts[1];
-    var year = new Date().getFullYear();
+    var year = this._now().getFullYear();
 
     return month + '/' + day + '/' + year;
 }
@@ -245,7 +246,9 @@ function _login(mint, email, password, callback) {
 }
 
 /**
- * Main public interface object
+ * Main public interface object. NOTE: In general you should
+ *  not use this constructor directly, but rather use the
+ *  exposed login function.
  *
  * Events:
  *  - `refreshing`: Emitted after a call to waitForRefresh()
@@ -306,22 +309,53 @@ PepperMint.prototype.accounts = cacheAs('accounts', function(mint) {
     return mint.getAccounts();
 });
 
-/**
- * Get budgets. By default, fetches the budget for the current month.
- * Alternatively, you can provide a single Date, and we will fetch
- * the budget for the month containing that date; or you can provide
- * two dates, and we will provide the budget for that range
- */
-PepperMint.prototype.getBudgets = function() {
-    var date, start, end;
+function budgetForKey(mint, categories, data, budgetKey) {
+
+    var income = data.income[budgetKey];
+    var spending = data.spending[budgetKey];
+
+    [income.bu, spending.bu, income.bu, spending.ub].forEach(function(budgetSet) {
+        budgetSet.forEach(function(budget) {
+            budget.category = mint.getCategoryNameById(
+                categories,
+                budget.cat
+            );
+        });
+    });
+
+    return {
+        income: income.bu,
+        spending: spending.bu,
+        unbudgeted: {
+            income: income.ub,
+            spending: spending.ub,
+        }
+    };
+}
+
+function firstDayOfNextMonth(date) {
+    if (date.getMonth() == 11) {
+        return new Date(date.getFullYear() + 1, 1);
+    } else {
+        return new Date(date.getFullYear(), date.getMonth() + 1);
+    }
+}
+
+PepperMint.prototype._getBudgetsArgs = function() {
+    var date, start, end, options;
     switch (arguments.length) {
     case 0:
-        date = new Date();
+        date = this._now();
         break;
     case 1:
-        date = arguments[0];
+        if (arguments[0] instanceof Date) {
+            date = arguments[0];
+        } else {
+            options = arguments[0];
+        }
         break;
     case 2:
+        // DEPRECATED:
         start = arguments[0];
         end = arguments[1];
         break;
@@ -329,11 +363,27 @@ PepperMint.prototype.getBudgets = function() {
 
     if (date) {
         start = new Date(date.getFullYear(), date.getMonth());
-        if (date.getMonth() == 11) {
-            end = new Date(date.getFullYear() + 1, 1);
-        } else {
-            end = new Date(date.getFullYear(), date.getMonth() + 1);
+        end = firstDayOfNextMonth(date);
+    } else if (options && options.months <= 0) {
+        throw new Error("Invalid `months` argument: " + options.months);
+    } else if (options && options.months) {
+        var now = this._now();
+        end = firstDayOfNextMonth(now);
+
+        // there may be a way to do this without a loop,
+        // but this is simple and understandable, and even if
+        // someone requests 100 years of data, this won't take too long.
+        var startYear = now.getFullYear();
+        var startMonth = end.getMonth() - options.months;
+        while (startMonth < 0) {
+            --startYear;
+            startMonth += 12;
         }
+
+        start = new Date(startYear, startMonth);
+    } else if (options) {
+        start = options.start;
+        end = options.end;
     }
 
     function formatDate(d) {
@@ -342,12 +392,46 @@ PepperMint.prototype.getBudgets = function() {
             + '/' + d.getFullYear();
     }
 
-    var self = this;
-    var args = {
+    return {
         startDate: formatDate(start),
         endDate: formatDate(end),
         rnd: this._random(),
+        options: options,
     };
+};
+
+/**
+ * Get budgets. By default, fetches the budget for the current month.
+ * Alternatively, you can provide a single Date, and we will fetch
+ * the budget for the month containing that date; or you can provide
+ * an options map:
+ *
+ * {
+ *  start: <date>,
+ *  end: <date>
+ * }
+ *
+ * In this case, we will fetch a *list* of budgets for the months between
+ * `start` and `end`. For the common case, you can instead provide:
+ *
+ * {
+ *  months: <number>
+ * }
+ *
+ * to get a *list* of budgets for the past `months` months. 0 is invalid,
+ * and 1 fetches the most recent month (but wrapped in a list).
+ *
+ * In either case, when using an options map the budgets are returned sorted
+ * from *oldest* month to *newest* month.
+ */
+PepperMint.prototype.getBudgets = function() {
+    var args = this._getBudgetsArgs.apply(this, arguments);
+    var self = this;
+
+    // if supplied, the options map is returned as part of args.
+    // pull it out here:
+    var options = args.options;
+    delete args.options;
 
     // fetch both in parallel
     return Q.spread([
@@ -355,32 +439,22 @@ PepperMint.prototype.getBudgets = function() {
         this._getJson('getBudget.xevent', args)
     ], function(categories, json) {
         var data = json.data;
-
-        var incomeKeys = Object.keys(data.income);
-        var budgetKey = Math.min.apply(Math, incomeKeys.map(function(k) {
+        var incomeKeys = Object.keys(data.income).map(function(k) {
             return parseInt(k);
-        })).toString();
-
-        var income = data.income[budgetKey];
-        var spending = data.spending[budgetKey];
-
-        [income.bu, spending.bu, income.bu, spending.ub].forEach(function(budgetSet) {
-            budgetSet.forEach(function(budget) {
-                budget.category = self.getCategoryNameById(
-                    categories,
-                    budget.cat
-                );
-            });
         });
 
-        return {
-            income: income.bu,
-            spending: spending.bu,
-            unbudgeted: {
-                income: income.ub,
-                spending: spending.ub,
-            }
-        };
+        if (!options) {
+            // single month
+            var budgetKey = Math.min.apply(Math, incomeKeys).toString();
+
+            return budgetForKey(self, categories, data, budgetKey);
+        }
+
+        // list of months
+        incomeKeys.sort();
+        return incomeKeys.map(key =>
+            budgetForKey(self, categories, data, key.toString())
+        );
     });
 };
 
@@ -691,7 +765,7 @@ PepperMint.prototype.refreshIfNeeded = function(maxAgeMillis, doneRefreshing) {
 
     var self = this;
     return this.accounts().then(function(accounts) {
-        var now = new Date().getTime();
+        var now = self._now().getTime();
         var needRefreshing = accounts.filter(function(account) {
             return now - account.lastUpdated > maxAgeMillis;
         }).filter(accountIsActive);
@@ -952,8 +1026,13 @@ PepperMint.prototype._jsonForm = function(json) {
     });
 };
 
+// stub-able Date factory for testing
+PepperMint.prototype._now = function() {
+    return new Date();
+};
+
 PepperMint.prototype._random = function() {
-    return new Date().getTime();
+    return this._now().getTime();
 };
 
 PepperMint.prototype._setCookie = function(key, val) {
