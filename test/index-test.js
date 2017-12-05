@@ -4,12 +4,12 @@ var PepperMint = require('../index').PepperMint;
 
 chai.should();
 
-var NOW = new Date(2017, 7, 27); // aug 27
+var NOW = () => new Date(2017, 7, 27); // aug 27
 
 function newMint() {
     var mint = new PepperMint();
     mint._now = function() {
-        return NOW;
+        return NOW();
     };
     return mint;
 }
@@ -47,13 +47,23 @@ describe('pepper-mint', function() {
             }).should.throw("Invalid `months`");
         });
 
-        it('handles months option crossing year boundary', function() {
+        it('handles months option crossing year boundary *back*', function() {
             var args = mint._getBudgetsArgs({
                 months: 9
             });
 
             args.startDate.should.equal("12/1/2016");
             args.endDate.should.equal("9/1/2017");
+        });
+
+        it('handles months option crossing year boundary *forward*', function() {
+            NOW = () => new Date(2017, 11, 27); // dec 27
+            var args = mint._getBudgetsArgs({
+                months: 2
+            });
+
+            args.startDate.should.equal("11/1/2017");
+            args.endDate.should.equal("1/1/2018");
         });
     });
 });

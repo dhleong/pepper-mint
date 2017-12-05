@@ -335,7 +335,7 @@ function budgetForKey(mint, categories, data, budgetKey) {
 
 function firstDayOfNextMonth(date) {
     if (date.getMonth() == 11) {
-        return new Date(date.getFullYear() + 1, 1);
+        return new Date(date.getFullYear() + 1, 0);
     } else {
         return new Date(date.getFullYear(), date.getMonth() + 1);
     }
@@ -373,7 +373,7 @@ PepperMint.prototype._getBudgetsArgs = function() {
         // there may be a way to do this without a loop,
         // but this is simple and understandable, and even if
         // someone requests 100 years of data, this won't take too long.
-        var startYear = now.getFullYear();
+        var startYear = end.getFullYear();
         var startMonth = end.getMonth() - options.months;
         while (startMonth < 0) {
             --startYear;
