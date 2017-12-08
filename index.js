@@ -103,7 +103,7 @@ function ensureDateStringFormatted(date) {
     }
 
     var day = parts[1];
-    var year = this._now().getFullYear();
+    var year = new Date().getFullYear();
 
     return month + '/' + day + '/' + year;
 }
