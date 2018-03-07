@@ -5,6 +5,8 @@ var EventEmitter = require('events').EventEmitter
   , request = require('request')
   , Q = require('q')
 
+  , _until = require('./webdriver-util')
+
   , URL_BASE = 'https://mint.intuit.com/'
   , URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/'
   , URL_LOGIN = URL_BASE + 'login.event'
@@ -138,13 +140,15 @@ function stringifyDate(date) {
  *  the PepperMint class instance is stored on the returned
  *  Promise as `.mint`.
  */
-function Prepare(email, password, ius_session, thx_guid) {
+function Prepare(email, password, token, cookies) {
     var mint = new PepperMint();
+    mint.token = token;
+
     var promise = Q.Promise(function(resolve, reject) {
         // start login next frame so clients can register event handlers
         // for browser-login
         setTimeout(function() {
-            mint._extractCookies(ius_session, thx_guid);
+            mint._extractCookies(token, cookies);
 
             _login(mint, email, password, function(err) {
                 if (err) return reject(err);
@@ -195,50 +199,14 @@ function _jsonify(promise) {
 /* non-public login util function, so the credentials aren't saved on any object */
 function _login(mint, email, password, callback) {
     return mint._getSessionCookies(email, password)
-    .then(function(sessionCookies) {
+    .spread(function(token, sessionCookies) {
         // initialize the session
-        Object.keys(sessionCookies).forEach(function(cookie) {
-            mint._setCookie(cookie, sessionCookies[cookie]);
+        sessionCookies.forEach(function(cookie) {
+            mint._setCookie(cookie.name, cookie.value);
         });
-        return mint._get(URL_SESSION_INIT + sessionCookies.ius_session);
-    }).then(function() {
-        return mint._formAccounts('sign_in', {
-            password: password,
-            username: email
-        });
-    })
-    .then(function(credentials) {
-        // get user pod (!?)
-        // initializes some cookies, I guess;
-        //  it does not appear to be necessary to
-        //  load login.event?task=L
-        return mint._form('getUserPod.xevent', {
-            clientType: 'Mint',
-            authid: credentials.iamTicket.userId
-        });
-    })
-    .then(function(json) {
-        // save the pod number (or whatever) in a cookie
-        var cookie = request.cookie('mintPN=' + json.mintPN);
-        mint.jar.setCookie(cookie, URL_BASE);
+        mint.sessionCookies = sessionCookies;
+        mint.token = token;
 
-        // finally, login
-        return mint._form('loginUserSubmit.xevent', {
-            task: 'L',
-            browser: BROWSER,
-            browserVersion: BROWSER_VERSION,
-            os: OS_NAME
-        });
-    })
-    .then(function(json) {
-        if (json.error && json.error.vError) {
-            return callback(new Error(json.error.vError.copy));
-        }
-        if (!(json.sUser && json.sUser.token)) {
-            return callback(new Error("Unable to obtain token"));
-        }
-
-        mint.token = json.sUser.token;
         callback(null, mint);
     }).catch(function(err) {
         callback(err);
@@ -816,28 +784,14 @@ PepperMint.prototype.waitForRefresh = function(doneRefreshing) {
  * Util methods
  */
 
-PepperMint.prototype._extractCookies = function(ius_session, thx_guid) {
-    if (ius_session && thx_guid) {
-        // both tokens were provided!
-        this.sessionCookies = {
-            ius_session: ius_session
-          , thx_guid: thx_guid
-        };
-    } else if (ius_session && !thx_guid
-            && ius_session.indexOf('ius_session') !== -1) {
-        // attempt backwards compatibility with old `cookies` arg
-        var tryMatch = function(regex) {
-            var m = ius_session.match(regex);
-            if (m) return m[1];
-        };
-        this.sessionCookies = {
-            ius_session: tryMatch(/ius_session=([^;]+)/)
-          , thx_guid: tryMatch(/thx_guid=([^;]+)/)
-        };
+PepperMint.prototype._extractCookies = function(token, cookies) {
+    if (cookies && cookies.length) {
+        this.sessionCookies = cookies;
     } else {
-        // nothing at all
-        this.sessionCookies = {};
+        this.sessionCookies = null;
     }
+
+    this.token = token;
 };
 
 
@@ -892,8 +846,8 @@ PepperMint.prototype._getJsonData = function(args) {
 };
 
 PepperMint.prototype._getSessionCookies = function(email, password) {
-    if (this.sessionCookies.ius_session) {
-        return Q.resolve(this.sessionCookies);
+    if (this.token && this.sessionCookies && this.sessionCookies.length) {
+        return Q.resolve([this.token, this.sessionCookies]);
     }
 
     var driver = new webdriver.Builder()
@@ -902,7 +856,7 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
 
     if (!driver) {
         return Q.reject(new Error(
-            "ius_session/thx_guid were not provided, and unable to " +
+            "token not provided, and unable to " +
             "load chromedriver + selenium>"
         ));
     }
@@ -920,28 +874,49 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
     driver.wait(until.urlIs(URL_BASE + "overview.event"));
     this.emit('browser-login', 'login');
 
-    // get ius_session here:
-    driver.get("http://accounts.intuit.com");
-    var self = this;
-    return driver.manage().getCookie("ius_session").then(function(cookie) {
-        self.emit('browser-login', 'cookie');
-        if (!cookie) {
-            driver.close();
-            throw new Error("ius_session not provided, and couldn't be retrieved");
+    // driver.wait(Q.delay(10000));
+
+    // get the token
+    // driver.wait(until.elementLocated(By.id("javascript-token")));
+    // let el = driver.findElement(By.id("javascript-token"));
+
+    let self = this;
+    let elPromise = driver.wait(_until.elementAttrMatches(By.id("javascript-user"), 'value', v => {
+        return v && v.length > 0 && v != '{}'
+    }, this));
+
+    let valuePromise = elPromise.then(el => {
+        self.emit('browser-login', 'RESOLVE!');
+        return el.getAttribute("value")
+    });
+
+    return Q(valuePromise).then(jsonString => {
+        // driver.close();
+
+        var json = null;
+        try {
+            json = JSON.parse(jsonString);
+        } catch (e) {
+            return Q.reject(e);
         }
 
-        sessionCookies.ius_session = cookie.value;
-        driver.get(URL_SESSION_INIT + sessionCookies.ius_session);
-        return driver.manage().getCookie("thx_guid");
-    }).then(function(cookie) {
-        driver.close();
-        if (!cookie) {
-            throw new Error("thx_guid not provided, and couldn't be retrieved");
+        self.emit('browser-login', 'cookie');
+        if (json && json.token) {
+            // return {
+            //     token: json.token,
+            // }
+            return [
+                Q.resolve(json.token),
+                driver.manage().getCookies()
+            ];
+        } else {
+            return Q.reject(new Error("No user token: " + token));
         }
+    }).spread((token, cookies) => {
+        driver.close();
 
         self.emit('browser-login', 'done');
-        sessionCookies.thx_guid = cookie.value;
-        return sessionCookies;
+        return [token, cookies];
     });
 };
 
@@ -1043,6 +1018,6 @@ PepperMint.prototype._setCookie = function(key, val) {
     this.jar.setCookie(str, URL_SESSION_INIT);
 
     // also provide for users to persist
-    this.sessionCookies[key] = val;
+    // this.sessionCookies[key] = val;
 };
 

@@ -64,6 +64,14 @@ describe('pepper-mint', function() {
 
             args.startDate.should.equal("11/1/2017");
             args.endDate.should.equal("1/1/2018");
+
+            NOW = () => new Date(2018, 0, 7); // jan 27
+            var args = mint._getBudgetsArgs({
+                months: 2
+            });
+
+            args.startDate.should.equal("12/1/2017");
+            args.endDate.should.equal("2/1/2018");
         });
     });
 });
