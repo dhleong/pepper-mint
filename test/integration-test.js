@@ -13,6 +13,7 @@ try {
 describe('pepper-mint', function () {
   describe('handles editing transactions', function () {
     it('verifies fields have changed after editing', async function () {
+      this.timeout(30000);
       let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid)
       await createTransaction(mint)
       let transactions = await getTransactions(mint)
