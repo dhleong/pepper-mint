@@ -7,26 +7,27 @@ try {
   var config = require('./integration-config.json');
 } catch (e) {
   // no config; don't run tests
-  process.exit()
 }
 
-describe('pepper-mint', function () {
-  describe('handles editing transactions', function () {
-    it('verifies fields have changed after editing', async function () {
-      this.timeout(30000);
-      let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid)
-      await createTransaction(mint)
-      let transactions = await getTransactions(mint)
+if (config) {
+  describe('pepper-mint', function () {
+    describe('handles editing transactions', function () {
+      it('verifies fields have changed after editing', async function () {
+        this.timeout(30000);
+        let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid)
+        await createTransaction(mint)
+        let transactions = await getTransactions(mint)
 
-      await editTransaction(mint, transactions)
-      let newTnx = await getTransactions(mint)
+        await editTransaction(mint, transactions)
+        let newTnx = await getTransactions(mint)
 
-      await deleteTransaction(mint, newTnx)
+        await deleteTransaction(mint, newTnx)
 
-      await doAssertions(newTnx)
-    })
+        await doAssertions(newTnx)
+      })
+    });
   });
-});
+}
 
 function doAssertions(transaction) {
   transaction[0].merchant.should.equal("New Test Merchant Name")
