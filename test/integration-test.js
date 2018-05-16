@@ -16,31 +16,73 @@ if (config) {
         this.timeout(30000);
         let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid)
         await createTransaction(mint)
-        let transactions = await getTransactions(mint)
+        let originalTransaction = (await getTransactions(mint))[0]
 
-        await editTransaction(mint, transactions)
-        let newTnx = await getTransactions(mint)
+        let transactionUpdates = getTransactionUpdates(originalTransaction)
+        await editTransactionWithUpdates(mint, transactionUpdates)
+        let updatedTransaction = (await getTransactions(mint))[0]
 
-        await deleteTransaction(mint, newTnx)
+        await deleteTransaction(mint, updatedTransaction)
 
-        await doAssertions(newTnx)
+        await doAssertionsWithUpdates(updatedTransaction, transactionUpdates)
+      })
+      // TODO: Ignored due to bug in PepperMint.editTransaction which requires you to pass in a date.
+      xit('verifies undefined fields when updating will not be cleared after editing', async function () {
+        this.timeout(30000);
+        let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid)
+        await createTransaction(mint)
+        let originalTransaction = (await getTransactions(mint))[0]
+
+        let transactionUpdates = getTransactionUpdates(originalTransaction)
+        setAllFieldsUndefined(transactionUpdates);
+
+        await editTransactionWithUpdates(mint, transactionUpdates)
+        let updatedTransaction = (await getTransactions(mint))[0]
+
+        await deleteTransaction(mint, updatedTransaction)
+
+        await doAssertions(updatedTransaction, originalTransaction)
+      })
+      it('verifies empty fields when updating will not be cleared after editing', async function () {
+        this.timeout(30000);
+        let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid)
+        await createTransaction(mint)
+        let originalTransaction = (await getTransactions(mint))[0]
+
+        let transactionUpdates = getTransactionUpdates(originalTransaction)
+        setAllFieldsEmpty(transactionUpdates);
+
+        await editTransactionWithUpdates(mint, transactionUpdates)
+        let updatedTransaction = (await getTransactions(mint))[0]
+
+        await deleteTransaction(mint, updatedTransaction)
+
+        await doAssertions(updatedTransaction, originalTransaction)
       })
     });
   });
 }
 
-function doAssertions(transaction) {
-  transaction[0].merchant.should.equal("New Test Merchant Name")
-  transaction[0].category.should.equal("Vacation")
-  transaction[0].categoryId.should.equal(1504)
-  transaction[0].date.should.equal("May 5")
-  return transaction
+function doAssertions(updatedTransaction, originalTransaction) {
+  updatedTransaction.merchant.should.equal(originalTransaction.merchant)
+  updatedTransaction.category.should.equal(originalTransaction.category)
+  updatedTransaction.categoryId.should.equal(originalTransaction.categoryId)
+  updatedTransaction.date.should.equal(originalTransaction.date)
+  return updatedTransaction
+}
+
+function doAssertionsWithUpdates(updatedTransaction, transactionUpdates) {
+  updatedTransaction.merchant.should.equal(transactionUpdates.merchant)
+  updatedTransaction.category.should.equal(transactionUpdates.category)
+  updatedTransaction.categoryId.should.equal(transactionUpdates.categoryId)
+  updatedTransaction.date.should.equal(formatDate(transactionUpdates.date))
+  return updatedTransaction
 }
 
 function createTransaction(mint) {
   let createRequest = {
     amount: 1.23,
-    date: "05/04/2018",
+    date: "05/04/2010",
     merchant: "Test Merchant Name",
     note: "This is a test transaction"
   }
@@ -52,23 +94,52 @@ function getTransactions(mint) {
     query: [
       "Test Merchant Name"
     ],
-    startDate: new Date(2018, 4),
-    endDate: new Date(2018, 6)
+    startDate: new Date(2010, 4),
+    endDate: new Date(2010, 6)
   }
   return mint.getTransactions(getTransactionsRequest)
 }
 
-function editTransaction(mint, tnx) {
-  let editTransactionRequest = {
-    id: tnx[0].id,
+function editTransactionWithUpdates(mint, updates) {
+  return mint.editTransaction(updates)
+}
+
+function getTransactionUpdates(originalTransaction) {
+  return {
+    id: originalTransaction.id,
     merchant: "New Test Merchant Name",
     category: "Vacation",
     categoryId: 1504,
-    date: "05/05/2018"
-  }
-  return mint.editTransaction(editTransactionRequest)
+    date: "05/05/2010"
+  };
 }
 
 function deleteTransaction(mint, transactions) {
-  return mint.deleteTransaction(transactions[0].id)
+  return mint.deleteTransaction(transactions.id)
+}
+
+function setAllFieldsEmpty(transactionUpdates) {
+  transactionUpdates.merchant = ""
+  transactionUpdates.category = ""
+  transactionUpdates.categoryId = ""
+  transactionUpdates.date = ""
+}
+
+function setAllFieldsUndefined(transactionUpdates) {
+  transactionUpdates.merchant = undefined
+  transactionUpdates.category = undefined
+  transactionUpdates.categoryId = undefined
+  transactionUpdates.date = undefined
+}
+
+function formatDate(currentYearStyledDate) {
+  let date = new Date(currentYearStyledDate)
+  let year = date.getFullYear().toString().slice(2)
+  let month = padLeadingZero(date.getMonth() + 1)
+  let day = padLeadingZero(date.getDate())
+  return `${month}/${day}/${year}`
+}
+
+function padLeadingZero(number) {
+  return `0${number.toString()}`.slice(-2)
 }
