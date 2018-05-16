@@ -1,5 +1,5 @@
 let chai = require('chai');
-let PepperMint = require('../index')
+let PepperMint = require('../index');
 
 chai.should();
 
