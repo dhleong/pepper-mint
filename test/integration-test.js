@@ -26,15 +26,14 @@ if (config) {
 
         await doAssertionsWithUpdates(updatedTransaction, transactionUpdates)
       })
-      // TODO: Ignored due to bug in PepperMint.editTransaction which requires you to pass in a date.
-      xit('verifies undefined fields when updating will not be cleared after editing', async function () {
+      it('verifies undefined fields when updating will not be cleared after editing', async function () {
         this.timeout(30000);
         let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid)
         await createTransaction(mint)
         let originalTransaction = (await getTransactions(mint))[0]
 
         let transactionUpdates = getTransactionUpdates(originalTransaction)
-        setAllFieldsUndefined(transactionUpdates);
+        setAllOptionalFieldsUndefined(transactionUpdates);
 
         await editTransactionWithUpdates(mint, transactionUpdates)
         let updatedTransaction = (await getTransactions(mint))[0]
@@ -125,11 +124,12 @@ function setAllFieldsEmpty(transactionUpdates) {
   transactionUpdates.date = ""
 }
 
-function setAllFieldsUndefined(transactionUpdates) {
+function setAllOptionalFieldsUndefined(transactionUpdates) {
   transactionUpdates.merchant = undefined
   transactionUpdates.category = undefined
   transactionUpdates.categoryId = undefined
-  transactionUpdates.date = undefined
+  // Date is a required field
+  transactionUpdates.date = ""
 }
 
 function formatDate(currentYearStyledDate) {
