@@ -67,6 +67,7 @@ function doAssertions(updatedTransaction, originalTransaction) {
   updatedTransaction.category.should.equal(originalTransaction.category)
   updatedTransaction.categoryId.should.equal(originalTransaction.categoryId)
   updatedTransaction.date.should.equal(originalTransaction.date)
+  updatedTransaction.note.should.equal(originalTransaction.note)
 }
 
 function doAssertionsWithUpdates(updatedTransaction, transactionUpdates) {
