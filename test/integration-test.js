@@ -67,7 +67,6 @@ function doAssertions(updatedTransaction, originalTransaction) {
   updatedTransaction.category.should.equal(originalTransaction.category)
   updatedTransaction.categoryId.should.equal(originalTransaction.categoryId)
   updatedTransaction.date.should.equal(originalTransaction.date)
-  return updatedTransaction
 }
 
 function doAssertionsWithUpdates(updatedTransaction, transactionUpdates) {
@@ -75,7 +74,6 @@ function doAssertionsWithUpdates(updatedTransaction, transactionUpdates) {
   updatedTransaction.category.should.equal(transactionUpdates.category)
   updatedTransaction.categoryId.should.equal(transactionUpdates.categoryId)
   updatedTransaction.date.should.equal(formatDate(transactionUpdates.date))
-  return updatedTransaction
 }
 
 function createTransaction(mint) {
