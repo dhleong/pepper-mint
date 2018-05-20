@@ -647,7 +647,7 @@ PepperMint.prototype.editTransaction = function(args) {
       , categoryTypeFilter: 'null'
       , date: stringifyDate(args.date)
       , merchant: args.merchant
-      , task: 'simpleEdit'
+      , task: 'txnedit'
       , txnId: args.id
 
       , token: this.token
