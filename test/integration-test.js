@@ -82,7 +82,7 @@ function createTransaction(mint) {
         amount: 1.23,
         date: "05/04/2010",
         merchant: "Test Merchant Name",
-        note: "This is a test transaction"
+        note: "This is a test transaction",
     };
     return mint.createTransaction(createRequest);
 }
@@ -90,10 +90,10 @@ function createTransaction(mint) {
 function getTransactions(mint) {
     let getTransactionsRequest = {
         query: [
-            "Test Merchant Name"
+            "Test Merchant Name",
         ],
         startDate: new Date(2010, 4),
-        endDate: new Date(2010, 6)
+        endDate: new Date(2010, 6),
     };
     return mint.getTransactions(getTransactionsRequest);
 }
@@ -108,7 +108,7 @@ function getTransactionUpdates(originalTransaction) {
         merchant: "New Test Merchant Name",
         category: "Vacation",
         categoryId: 1504,
-        date: "05/05/2010"
+        date: "05/05/2010",
     };
 }
 
