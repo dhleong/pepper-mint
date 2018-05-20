@@ -10,9 +10,9 @@ try {
 }
 
 if (config) {
-  describe('pepper-mint', function () {
-    describe('handles editing transactions', function () {
-      it('verifies fields have changed after editing', async function () {
+  describe('pepper-mint', function() {
+    describe('handles editing transactions', function() {
+      it('verifies fields have changed after editing', async function() {
         this.timeout(30000);
         let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid);
         await createTransaction(mint);
@@ -26,7 +26,7 @@ if (config) {
 
         await doAssertionsWithUpdates(updatedTransaction, transactionUpdates);
       });
-      it('verifies undefined fields when updating will not be cleared after editing', async function () {
+      it('verifies undefined fields when updating will not be cleared after editing', async function() {
         this.timeout(30000);
         let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid);
         await createTransaction(mint);
@@ -42,7 +42,7 @@ if (config) {
 
         await doAssertions(updatedTransaction, originalTransaction);
       });
-      it('verifies empty fields when updating will not be cleared after editing', async function () {
+      it('verifies empty fields when updating will not be cleared after editing', async function() {
         this.timeout(30000);
         let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid);
         await createTransaction(mint);
