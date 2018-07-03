@@ -862,7 +862,6 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
     }
 
     this.emit('browser-login', 'init');
-    var sessionCookies = {};
 
     driver.get(URL_LOGIN);
     driver.wait(until.elementLocated(By.id("ius-sign-in-submit-btn")));
@@ -874,25 +873,17 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
     driver.wait(until.urlIs(URL_BASE + "overview.event"));
     this.emit('browser-login', 'login');
 
-    // driver.wait(Q.delay(10000));
-
-    // get the token
-    // driver.wait(until.elementLocated(By.id("javascript-token")));
-    // let el = driver.findElement(By.id("javascript-token"));
-
     let self = this;
     let elPromise = driver.wait(_until.elementAttrMatches(By.id("javascript-user"), 'value', v => {
-        return v && v.length > 0 && v != '{}'
+        return v && v.length > 0 && v != '{}';
     }, this));
 
     let valuePromise = elPromise.then(el => {
         self.emit('browser-login', 'RESOLVE!');
-        return el.getAttribute("value")
+        return el.getAttribute("value");
     });
 
     return Q(valuePromise).then(jsonString => {
-        // driver.close();
-
         var json = null;
         try {
             json = JSON.parse(jsonString);
@@ -910,7 +901,7 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
                 driver.manage().getCookies()
             ];
         } else {
-            return Q.reject(new Error("No user token: " + token));
+            return Q.reject(new Error("No user token: " + json));
         }
     }).spread((token, cookies) => {
         driver.close();
