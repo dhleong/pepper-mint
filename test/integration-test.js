@@ -26,6 +26,7 @@ if (config) {
 
                 await doAssertionsWithUpdates(updatedTransaction, transactionUpdates);
             });
+
             it('verifies undefined fields when updating will not be cleared after editing', async function() {
                 this.timeout(30000);
                 let mint = await PepperMint(config.username, config.password, config.ius_session, config.thx_guid);

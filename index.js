@@ -13,9 +13,9 @@ var EventEmitter = require('events').EventEmitter,
     URL_SERVICE_BASE = 'https://mintappservice.api.intuit.com/v1',
     URL_SESSION_INIT = 'https://pf.intuit.com/fp/tags?js=0&org_id=v60nf4oj&session_id=',
     USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
-    // BROWSER = 'chrome',
-    // BROWSER_VERSION = 58,
-    // OS_NAME = 'mac',
+    BROWSER = 'chrome',
+    BROWSER_VERSION = 58,
+    OS_NAME = 'mac',
 
     INTUIT_API_KEY = 'prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy',
     DEFAULT_REFRESH_AGE_MILLIS = 24 * 3600 * 100; // 24 hours
@@ -785,9 +785,61 @@ PepperMint.prototype.waitForRefresh = function(doneRefreshing) {
  */
 
 PepperMint.prototype._extractCookies = function(token, cookies) {
-    if (cookies && cookies.length) {
+    if (cookies && Array.isArray(cookies) && cookies.length) {
+
+        // newest, normal version
         this.sessionCookies = cookies;
+
+    } else if (
+        token
+        && !cookies
+        && typeof(token) !== 'string'
+    ) {
+
+        // map of old cookies
+        this.sessionCookies = [
+            {name: 'ius_session', value: token.ius_session},
+            {name: 'thx_guid', value: token.thx_guid},
+        ];
+
+    } else if (
+        token
+        && !cookies
+        && token.indexOf('ius_session') !== -1
+    ) {
+
+        // attempt backwards compatibility with old `cookies` arg
+        var tryMatch = function(regex) {
+            var m = token.match(regex);
+            if (m) return m[1];
+        };
+        this.sessionCookies = [
+            {
+                name: 'ius_session',
+                value: tryMatch(/ius_session=([^;]+)/),
+            },
+            {
+                name: 'thx_guid',
+                value: tryMatch(/thx_guid=([^;]+)/),
+            },
+        ];
+
+    } else if (
+        token
+        && cookies
+        && typeof(token) === 'string'
+        && typeof(cookies) === 'string'
+    ) {
+
+        // super ancient version
+        this.sessionCookies = [
+            {name: 'ius_session', value: token},
+            {name: 'thx_guid', value: cookies},
+        ];
+
     } else {
+
+        // no cookies at all (force v2 login)
         this.sessionCookies = null;
     }
 
@@ -846,6 +898,84 @@ PepperMint.prototype._getJsonData = function(args) {
 };
 
 PepperMint.prototype._getSessionCookies = function(email, password) {
+    // try v1 first because it's faster if it works
+    return this._getSessionCookiesV1(email, password)
+    .catch(() =>
+        // no dice; fall back to v2
+        this._getSessionCookiesV2(email, password)
+    );
+};
+
+/**
+ * Old login method that weirdly works sometimes
+ *  (and is faster when it does)
+ */
+PepperMint.prototype._getSessionCookiesV1 = function(email, password) {
+    if (!this.sessionCookies) {
+        return Q.reject(new Error("No session cookies"));
+    }
+
+    let cookiesMap = this.sessionCookies.reduce(
+        (m, cookie) => {
+            m[cookie.name] = cookie.value;
+            return m;
+        },
+        {}
+    );
+    if (!cookiesMap.ius_session) {
+        return Q.reject(new Error("No session cookies"));
+    }
+
+    // initialize the session
+    this.sessionCookies.forEach(cookie => {
+        this._setCookie(cookie.name, cookie.value);
+    });
+
+    return this._get(URL_SESSION_INIT + cookiesMap.ius_session)
+    .then(() => this._formAccounts('sign_in', {
+        password: password,
+        username: email,
+    }))
+    .then(credentials => {
+        // get user pod (?!)
+        // initializes some cookies, I guess;
+        //  it does not appear to be necessary to
+        //  load login.event?task=L
+        return this._form('getUserPod.xevent', {
+            clientType: 'Mint',
+            authid: credentials.iamTicket.userId,
+        });
+    })
+    .then(json => {
+        // save the pod number (or whatever) in a cookie
+        let cookie = request.cookie('mintPN=' + json.mintPN);
+        this.jar.setCookie(cookie, URL_BASE);
+
+        // finally, login
+        return this._form('loginUserSubmit.xevent', {
+            task: 'L',
+            browser: BROWSER,
+            browserVersion: BROWSER_VERSION,
+            os: OS_NAME,
+        });
+    })
+    .then(json => {
+        if (json.error && json.error.vError) {
+            return Q.reject(new Error(json.error.vError.copy));
+        }
+        if (!(json.sUser && json.sUser.token)) {
+            return Q.reject(new Error("Unable to obtain token"));
+        }
+
+        this.token = json.sUser.token;
+        return [this.token, this.sessionCookies];
+    });
+};
+
+/**
+ * New method that has to open a chrome browser, but is more reliable
+ */
+PepperMint.prototype._getSessionCookiesV2 = function(email, password) {
     if (this.token && this.sessionCookies && this.sessionCookies.length) {
         return Q.resolve([this.token, this.sessionCookies]);
     }
