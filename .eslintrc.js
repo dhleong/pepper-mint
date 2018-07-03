@@ -7,7 +7,8 @@ module.exports = {
     "rules": {
         "indent": [
             "error",
-            4
+            4,
+            {"MemberExpression": "off"}
         ],
         "linebreak-style": [
             "error",
@@ -23,6 +24,14 @@ module.exports = {
         "brace-style": [
             "error",
             "1tbs"
+        ],
+        "comma-style": [
+            "error",
+            "last"
+        ],
+        "comma-dangle": [
+            "error",
+            "always-multiline"
         ],
         "curly": [
             "error",

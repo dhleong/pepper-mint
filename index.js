@@ -1,43 +1,43 @@
 #!/usr/bin/env node
 
-var EventEmitter = require('events').EventEmitter
-  , util = require('util')
-  , request = require('request')
-  , Q = require('q')
+var EventEmitter = require('events').EventEmitter,
+    util = require('util'),
+    request = require('request'),
+    Q = require('q'),
 
-  , _until = require('./webdriver-util')
+    _until = require('./webdriver-util'),
 
-  , URL_BASE = 'https://mint.intuit.com/'
-  , URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/'
-  , URL_LOGIN = URL_BASE + 'login.event'
-  , URL_SERVICE_BASE = 'https://mintappservice.api.intuit.com/v1'
-  , URL_SESSION_INIT = 'https://pf.intuit.com/fp/tags?js=0&org_id=v60nf4oj&session_id='
-  , USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
-  , BROWSER = 'chrome'
-  , BROWSER_VERSION = 58
-  , OS_NAME = 'mac'
+    URL_BASE = 'https://mint.intuit.com/',
+    URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/',
+    URL_LOGIN = URL_BASE + 'login.event',
+    URL_SERVICE_BASE = 'https://mintappservice.api.intuit.com/v1',
+    URL_SESSION_INIT = 'https://pf.intuit.com/fp/tags?js=0&org_id=v60nf4oj&session_id=',
+    USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
+    // BROWSER = 'chrome',
+    // BROWSER_VERSION = 58,
+    // OS_NAME = 'mac',
 
-  , INTUIT_API_KEY = 'prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy'
-  , DEFAULT_REFRESH_AGE_MILLIS = 24 * 3600 * 100; // 24 hours
+    INTUIT_API_KEY = 'prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy',
+    DEFAULT_REFRESH_AGE_MILLIS = 24 * 3600 * 100; // 24 hours
 
 require('chromedriver');
-var webdriver = require('selenium-webdriver')
-  , By = webdriver.By
-  , until = webdriver.until;
+var webdriver = require('selenium-webdriver'),
+    By = webdriver.By,
+    until = webdriver.until;
 
 var MONTH_NUMBERS = {
-    Jan: '01'
-  , Feb: '02'
-  , Mar: '03'
-  , Apr: '04'
-  , May: '05'
-  , Jun: '06'
-  , Jul: '07'
-  , Aug: '08'
-  , Sep: '09'
-  , Oct: '10'
-  , Nov: '11'
-  , Dec: '12'
+    Jan: '01',
+    Feb: '02',
+    Mar: '03',
+    Apr: '04',
+    May: '05',
+    Jun: '06',
+    Jul: '07',
+    Aug: '08',
+    Sep: '09',
+    Oct: '10',
+    Nov: '11',
+    Dec: '12',
 };
 
 module.exports = Prepare;
@@ -266,11 +266,11 @@ PepperMint.prototype.getAccounts = function() {
                 "OTHER_PROPERTY",
                 "REAL_ESTATE",
                 "VEHICLE",
-                "UNCLASSIFIED"
-            ]
+                "UNCLASSIFIED",
+            ],
         },
         service: "MintAccountService",
-        task: "getAccountsSorted"
+        task: "getAccountsSorted",
     });
 };
 PepperMint.prototype.accounts = cacheAs('accounts', function(mint) {
@@ -297,7 +297,7 @@ function budgetForKey(mint, categories, data, budgetKey) {
         unbudgeted: {
             income: income.ub,
             spending: spending.ub,
-        }
+        },
     };
 }
 
@@ -404,7 +404,7 @@ PepperMint.prototype.getBudgets = function() {
     // fetch both in parallel
     return Q.spread([
         this.categories(),
-        this._getJson('getBudget.xevent', args)
+        this._getJson('getBudget.xevent', args),
     ], function(categories, json) {
         var data = json.data;
         var incomeKeys = Object.keys(data.income).map(function(k) {
@@ -505,15 +505,15 @@ PepperMint.prototype.getTransactions = function(args) {
     }
 
     return this._getJsonData({
-        accountId: args.accountId
-      , offset: offset
-      , comparableType: 8 // ?
-      , acctChanged: 'T'  // ?
-      , query: query.join(',')
-      , queryNew: ""
-      , startDate: stringifyDate(args.startDate)
-      , endDate: stringifyDate(args.endDate)
-      , task: 'transactions'
+        accountId: args.accountId,
+        offset: offset,
+        comparableType: 8, // ?
+        acctChanged: 'T',  // ?
+        query: query.join(','),
+        queryNew: "",
+        startDate: stringifyDate(args.startDate),
+        endDate: stringifyDate(args.endDate),
+        task: 'transactions',
     });
 };
 
@@ -547,21 +547,21 @@ PepperMint.prototype.createTransaction = function(args) {
 
     var self = this;
     var form = {
-        amount: args.amount
-      , cashTxnType: 'on'
-      , date: stringifyDate(args.date)
-      , isInvestment: args.isInvestment
-      , merchant: args.merchant
-      , mtAccount: args.accountId
-      , mtCashSplitPref: 2              // ?
-      , mtCheckNo: ''
-      , mtIsExpense: args.isExpense
-      , mtType: 'cash'
-      , note: args.note
-      , task: 'txnadd'
-      , txnId: ':0'                     // might be required
+        amount: args.amount,
+        cashTxnType: 'on',
+        date: stringifyDate(args.date),
+        isInvestment: args.isInvestment,
+        merchant: args.merchant,
+        mtAccount: args.accountId,
+        mtCashSplitPref: 2,             // ?
+        mtCheckNo: '',
+        mtIsExpense: args.isExpense,
+        mtType: 'cash',
+        note: args.note,
+        task: 'txnadd',
+        txnId: ':0',                    // might be required
 
-      , token: this.token
+        token: this.token,
     };
 
     if (args.category) {
@@ -587,7 +587,7 @@ PepperMint.prototype.deleteTransaction = function(transactionId) {
     return this._form('updateTransaction.xevent', {
         task: 'delete',
         txnId: transactionId,
-        token: this.token
+        token: this.token,
     });
 };
 
@@ -609,16 +609,16 @@ PepperMint.prototype.deleteTransaction = function(transactionId) {
  */
 PepperMint.prototype.editTransaction = function(args) {
     var form = {
-        amount: ''
-      , category: args.category
-      , catId: args.categoryId
-      , categoryTypeFilter: 'null'
-      , date: stringifyDate(args.date)
-      , merchant: args.merchant
-      , task: 'txnedit'
-      , txnId: args.id
+        amount: '',
+        category: args.category,
+        catId: args.categoryId,
+        categoryTypeFilter: 'null',
+        date: stringifyDate(args.date),
+        merchant: args.merchant,
+        task: 'txnedit',
+        txnId: args.id,
 
-      , token: this.token
+        token: this.token,
     };
 
     // TODO support tags, adding notes?
@@ -687,7 +687,7 @@ PepperMint.prototype.providers = cacheAs('providers', function(mint) {
  */
 PepperMint.prototype.initiateAccountRefresh = function() {
     return this._form('refreshFILogins.xevent', {
-        token: this.token
+        token: this.token,
     });
 };
 
@@ -828,7 +828,7 @@ PepperMint.prototype._getJson = function(url, qs, headers) {
 
 PepperMint.prototype._getIntuitJson = function(urlPart) {
     return this._getJson(URL_SERVICE_BASE + urlPart, null, {
-        Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0'
+        Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0',
     });
 };
 
@@ -893,12 +893,9 @@ PepperMint.prototype._getSessionCookies = function(email, password) {
 
         self.emit('browser-login', 'cookie');
         if (json && json.token) {
-            // return {
-            //     token: json.token,
-            // }
             return [
                 Q.resolve(json.token),
-                driver.manage().getCookies()
+                driver.manage().getCookies(),
             ];
         } else {
             return Q.reject(new Error("No user token: " + json));
@@ -917,16 +914,16 @@ PepperMint.prototype._form = function(url, form) {
     return _jsonify(Q.Promise(function(resolve, reject) {
         var fullUrl = URL_BASE + url;
         request({
-            url: fullUrl
-          , method: 'POST'
-          , form: form
-          , headers: {
-              Accept: 'application/json'
-              , 'User-Agent': USER_AGENT
-              , 'X-Request-With': 'XMLHttpRequest'
-              , 'X-NewRelic-ID': 'UA4OVVFWGwYJV1FTBAE='
-              , 'Referrer': 'https://mint.intuit.com/login.event?task=L&messageId=5&country=US'
-          }
+            url: fullUrl,
+            method: 'POST',
+            form: form,
+            headers: {
+                Accept: 'application/json',
+                'User-Agent': USER_AGENT,
+                'X-Request-With': 'XMLHttpRequest',
+                'X-NewRelic-ID': 'UA4OVVFWGwYJV1FTBAE=',
+                'Referrer': 'https://mint.intuit.com/login.event?task=L&messageId=5&country=US',
+            },
         }, function(err, response, body) {
             if (err) return reject(err);
             if (response.statusCode > 204) {
@@ -945,10 +942,10 @@ PepperMint.prototype._formAccounts = function(url, form) {
     return _jsonify(Q.Promise(function(resolve, reject) {
         var fullUrl = URL_BASE_ACCOUNTS + url;
         request({
-            url: fullUrl
-          , method: 'POST'
-          , json: true
-          , body: form,
+            url: fullUrl,
+            method: 'POST',
+            json: true,
+            body: form,
             headers: {
                 'Origin': 'https://mint.intuit.com',
                 'Accept-Language': 'en-US,en;q=0.8',
@@ -959,8 +956,8 @@ PepperMint.prototype._formAccounts = function(url, form) {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json; charset=utf-8',
                 'Referer': 'https://mint.intuit.com/login.event?utm_medium=direct&test=Returning_User:_Credit_Score_Homepage_May_2017:Social_proof_2&cta=nav_login_dropdown',
-                'intuit_offeringenv': 'prd'
-            }
+                'intuit_offeringenv': 'prd',
+            },
         }, function(err, response, body) {
             if (err) return reject(err);
             if (response.statusCode > 204) {
@@ -981,7 +978,7 @@ PepperMint.prototype._jsonForm = function(json) {
     var url = 'bundledServiceController.xevent?legacy=false&token=' + this.token;
 
     return this._form(url, {
-        input: JSON.stringify([json]) // weird
+        input: JSON.stringify([json]), // weird
     }).then(function(resp) {
         if (!resp.response) {
             var task = json.service + "/" + json.task;
