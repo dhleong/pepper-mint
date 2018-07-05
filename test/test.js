@@ -2,7 +2,7 @@ var assert = require('assert');
 var PepperMint = require('../index.js');
 
 try {
-    var config = require('./config.json');
+    var config = require('./integration-config.json');
 } catch (e) {
     // no config; don't run tests
 }
@@ -20,7 +20,7 @@ if (config) {
             });
         });
         describe('#getTransactions()', function () {
-            it('should return list of transactions', function () {
+            it.only('should return list of transactions', function () {
                 this.timeout(30000);
                 return PepperMint(config.username, config.password, config.cookie).then(mint => {
                     return mint.getTransactions().then(transactions => {

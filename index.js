@@ -511,8 +511,8 @@ PepperMint.prototype.getTransactions = function(args) {
         acctChanged: 'T',  // ?
         query: query.join(','),
         queryNew: "",
-        startDate: stringifyDate(args.startDate),
-        endDate: stringifyDate(args.endDate),
+        startDate: args.startDate ? stringifyDate(args.startDate) : undefined,
+        endDate: args.endDate ? stringifyDate(args.endDate) : undefined,
         task: 'transactions',
     });
 };
@@ -976,6 +976,19 @@ PepperMint.prototype._getSessionCookiesV1 = function(email, password) {
  * New method that has to open a chrome browser, but is more reliable
  */
 PepperMint.prototype._getSessionCookiesV2 = function(email, password) {
+    if (this.sessionCookies
+        && Array.isArray(this.sessionCookies)
+        && this.sessionCookies.length <= 2
+    ) {
+        // probably just ius_session; strip them out in case there
+        // was also a v2 cookie (again, probably not, but just to
+        // be safe).
+        this.sessionCookies = this.sessionCookies.filter(cookie =>
+            cookie.name !== 'ius_session'
+                && cookie.name !== 'thx_guid'
+        );
+    }
+
     if (this.token && this.sessionCookies && this.sessionCookies.length) {
         return Q.resolve([this.token, this.sessionCookies]);
     }
