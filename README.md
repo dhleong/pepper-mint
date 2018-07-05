@@ -34,6 +34,14 @@ require('pepper-mint')(user, pass, cookie)
 
 #### Mint Cookie
 
+> 🚨 NOTE: Mint no longer seems to issue these. This information will
+> remain for historical purposes, but you should probably just ignore it and
+> only provide the `user` and `pass` parameters to the PepperMint constructor.
+> If you do happen to still have `ius_session` and `thx_guid` you can continue
+> to provide them, as they do occasionally still work. PepperMint will try
+> to use them first, if provided, then fallback to the new auth method
+> which always opens a browser.
+
 Because of an update to the authorization flow of Mint.com, the API now
 requires a couple cookies, which are passed to the *pepper-mint* library as
 a string. These are called `ius_session` and `thx_guid`.
@@ -63,12 +71,21 @@ be aware that using this method will probably require you to input a two-factor
 auth code. If you want to persist the cookies fetched by this method, they will
 be stored as `.sessionCookies` on the Mint instance:
 
+> 🚨 NOTE: `.sessionCookies` still exists as of PepperMint v2.0.0, but it
+> is now an array of `{name: "", value: ""}` maps. Due to how short a
+> lifespan the new cookies have, you probably shouldn't bother trying to
+> persist them like this anymore.
+
 ```javascript
 require('pepper-mint')(username, password)
 .then(function(mint) {
     // NOTE: this is spelled out to clarify the format
     // of the sessionCookies property
     persistCookies({
+        // 🚨 Just a reminder, if you missed the NOTE above:
+        // sessionCookies does not look like this anymore as of
+        // PepperMint v2.0.0 and you probably shouldn't bother
+        // with any of this.
         ius_session: mint.sessionCookies.ius_session,
         thx_guid: mint.sessionCookies.thx_guid,
     });
