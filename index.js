@@ -10,7 +10,7 @@ var EventEmitter = require('events').EventEmitter,
     URL_BASE = 'https://mint.intuit.com/',
     URL_BASE_ACCOUNTS = 'https://accounts.intuit.com/access_client/',
     URL_LOGIN = URL_BASE + 'login.event',
-    URL_SERVICE_BASE = 'https://mintappservice.api.intuit.com/v1',
+    URL_SERVICE_BASE = URL_BASE + 'mas/v1',
     URL_SESSION_INIT = 'https://pf.intuit.com/fp/tags?js=0&org_id=v60nf4oj&session_id=',
     USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
     BROWSER = 'chrome',
@@ -686,9 +686,7 @@ PepperMint.prototype.providers = cacheAs('providers', function(mint) {
  * Refresh account FI Data
  */
 PepperMint.prototype.initiateAccountRefresh = function() {
-    return this._form('refreshFILogins.xevent', {
-        token: this.token,
-    });
+    return this._postIntuitJson('/refreshJob', {allProviders: true});
 };
 
 /**
@@ -846,22 +844,14 @@ PepperMint.prototype._extractCookies = function(token, cookies) {
     this.token = token;
 };
 
-
-PepperMint.prototype._get = function(url, qs, headers) {
+PepperMint.prototype._req = function(req) {
     var request = this.request;
     return Q.Promise(function(resolve, reject) {
-        var fullUrl = url.startsWith("http")
-            ? url
-            : URL_BASE + url;
-        var args = {url: fullUrl};
-        if (qs) args.qs = qs;
-        if (headers) args.headers = headers;
-
-        request(args, function(err, response, body) {
+        request(req, function(err, response, body) {
             if (err) return reject(err);
-            if (200 !== response.statusCode) {
+            if (response.statusCode >= 300) {
                 var error = new Error(
-                    "Failed to load " + fullUrl +
+                    "Failed to load " + req.url +
                     ": " + response.statusCode
                 );
                 error.statusCode = response.statusCode;
@@ -874,6 +864,18 @@ PepperMint.prototype._get = function(url, qs, headers) {
     });
 };
 
+PepperMint.prototype._get = function(url, qs, headers) {
+    var fullUrl = url.startsWith("http")
+        ? url
+        : URL_BASE + url;
+    return this._req({
+        method: 'GET',
+        url: fullUrl,
+        qs,
+        headers,
+    });
+};
+
 PepperMint.prototype._getJson = function(url, qs, headers) {
     return _jsonify(this._get(url, qs, headers));
 };
@@ -881,6 +883,17 @@ PepperMint.prototype._getJson = function(url, qs, headers) {
 PepperMint.prototype._getIntuitJson = function(urlPart) {
     return this._getJson(URL_SERVICE_BASE + urlPart, null, {
         Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0',
+    });
+};
+
+PepperMint.prototype._postIntuitJson = function(urlPart, body) {
+    return this._req({
+        url: URL_SERVICE_BASE + urlPart,
+        method: 'POST',
+        headers: {
+            Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0',
+        },
+        json: body,
     });
 };
 
