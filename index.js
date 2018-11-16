@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 var EventEmitter = require('events').EventEmitter,
     util = require('util'),
     request = require('request'),
