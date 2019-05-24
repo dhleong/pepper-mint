@@ -563,8 +563,8 @@ PepperMint.prototype.createTransaction = function(args) {
     };
 
     if (args.category) {
-        args.catId = args.category.id;
-        args.category = args.category.name;
+        form.catId = args.category.id;
+        form.category = args.category.name;
     }
 
     // set any tags requested
