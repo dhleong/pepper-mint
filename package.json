@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/dhleong/pepper-mint",
   "dependencies": {
-    "chromedriver": "^2.40.0",
+    "chromedriver": "^76.0.0",
     "q": "^1.5.1",
     "request": "^2.88.0",
     "selenium-webdriver": "^3.6.0"
