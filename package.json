@@ -22,13 +22,28 @@
   },
   "homepage": "https://github.com/dhleong/pepper-mint",
   "dependencies": {
+    "bent": "^7.0.6",
     "chromedriver": "^80.0.1",
     "q": "^1.5.1",
-    "request": "^2.88.0",
+    "request": "^2.88.2",
+    "request-promise-native": "^1.0.8",
     "selenium-webdriver": "^3.6.0"
   },
   "devDependencies": {
+    "@types/bent": "^7.0.1",
+    "@types/node": "^13.7.1",
+    "@types/request": "^2.48.4",
+    "@types/request-promise-native": "^1.0.17",
+    "@types/selenium-webdriver": "^4.0.6",
+    "@typescript-eslint/eslint-plugin": "^2.19.2",
+    "@typescript-eslint/eslint-plugin-tslint": "^2.19.2",
+    "@typescript-eslint/parser": "^2.19.2",
     "chai": "^4.2.0",
-    "mocha": "^6.1.4"
+    "eslint": "^6.8.0",
+    "eslint-plugin-import": "^2.20.1",
+    "eslint-plugin-prefer-arrow": "^1.1.7",
+    "mocha": "^6.1.4",
+    "tslint": "^6.0.0",
+    "typescript": "^3.7.5"
   }
 }
