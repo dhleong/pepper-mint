@@ -1,3 +1,5 @@
+import { EventEmitter } from "events";
+
 import { IMintAuthorizer, IMintCredentials, INetService } from "../model";
 
 import { ChromedriverMintAuth } from "./chromedriver-auth";
@@ -14,11 +16,14 @@ export class MintAuth implements IMintAuthorizer {
         ];
     }
 
-    public async authorize(credentials: IMintCredentials) {
+    public async authorize(
+        events: EventEmitter,
+        credentials: IMintCredentials,
+    ) {
         let lastError: Error | null = null;
         for (const strategy of this.strategies) {
             try {
-                const auth = await strategy.authorize(credentials);
+                const auth = await strategy.authorize(events, credentials);
                 if (auth) return auth;
             } catch (e) {
                 // fall

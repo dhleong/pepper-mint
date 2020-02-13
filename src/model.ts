@@ -1,3 +1,5 @@
+import { EventEmitter } from "events";
+
 import { CookieJar } from "request";
 
 export interface ICredentialExtras {
@@ -17,7 +19,10 @@ export interface IMintAuth {
 }
 
 export interface IMintAuthorizer {
-    authorize(credentials: IMintCredentials): Promise<IMintAuth>;
+    authorize(
+        events: EventEmitter,
+        credentials: IMintCredentials,
+    ): Promise<IMintAuth>;
 }
 
 export interface INetService {

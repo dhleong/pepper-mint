@@ -1,3 +1,5 @@
+import { EventEmitter } from "events";
+
 import webdriver, { By, until } from "selenium-webdriver";
 
 import { IMintAuthorizer, IMintCredentials } from "../model";
@@ -7,23 +9,27 @@ const URL_LOGIN = URL_BASE + "login.event";
 
 export class ChromedriverMintAuth implements IMintAuthorizer {
 
-    public async authorize(credentials: IMintCredentials) {
+    public async authorize(
+        events: EventEmitter,
+        credentials: IMintCredentials,
+    ) {
         require("chromedriver");
 
         const driver = await this.createDriver();
         try {
-            return await this.authWithDriver(driver, credentials);
+            return await this.authWithDriver(events, driver, credentials);
         } finally {
             await driver.close();
-
-            // TODO:
-            // this.emit("browser-login", "done");
+            events.emit("browser-login", "done");
         }
     }
 
-    private async authWithDriver(driver: webdriver.WebDriver, credentials: IMintCredentials) {
-        // TODO:
-        // this.emit('browser-login', 'init');
+    private async authWithDriver(
+        events: EventEmitter,
+        driver: webdriver.WebDriver,
+        credentials: IMintCredentials,
+    ) {
+        events.emit('browser-login', 'init');
 
         await driver.get(URL_LOGIN);
         await driver.wait(until.elementLocated(By.id("ius-sign-in-submit-btn")));
@@ -33,20 +39,17 @@ export class ChromedriverMintAuth implements IMintAuthorizer {
 
         // we will probably need 2fa... wait until actually logged in
         await driver.wait(until.urlIs(URL_BASE + "overview.event"));
-        // TODO:
-        // this.emit('browser-login', 'login');
+        events.emit('browser-login', 'login');
 
         const el = await driver.wait(elementAttrMatches(By.id("javascript-user"), 'value', v => {
             return v && v.length > 0 && v !== '{}';
         }));
 
-        // TODO:
-        // this.emit('browser-login', 'RESOLVE!');
+        events.emit('browser-login', 'RESOLVE!');
         const jsonString = await el.getAttribute("value");
         const json = JSON.parse(jsonString);
 
-        // TODO:
-        // this.emit('browser-login', 'cookie');
+        events.emit('browser-login', 'cookie');
         if (!(json && json.token)) {
             throw new Error("No user token: " + json);
         }

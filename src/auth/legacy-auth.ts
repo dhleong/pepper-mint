@@ -1,3 +1,5 @@
+import { EventEmitter } from "events";
+
 import { IMintAuthorizer, IMintCredentials, INetService } from "../model";
 
 import { extractSessionCookies } from "./session-cookies";
@@ -15,7 +17,10 @@ export class LegacyMintAuth implements IMintAuthorizer {
         private readonly net: INetService,
     ) {}
 
-    public async authorize(credentials: IMintCredentials) {
+    public async authorize(
+        events: EventEmitter,
+        credentials: IMintCredentials,
+    ) {
         const session = extractSessionCookies(credentials);
         if (!session || !session.cookies) {
             throw new Error("No session cookies");
