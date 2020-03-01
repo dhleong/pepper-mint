@@ -13,8 +13,13 @@ export interface IMintCredentials {
     extras?: ICredentialExtras;
 }
 
+export interface ICookie {
+    name: string;
+    value: string;
+}
+
 export interface IMintAuth {
-    cookies: any[];
+    cookies: ICookie[];
     token: string;
 }
 
@@ -25,14 +30,22 @@ export interface IMintAuthorizer {
     ): Promise<IMintAuth>;
 }
 
+export interface IJsonForm {
+    args?: {[key: string]: any};
+    service: string;
+    task: string;
+}
+
 export interface INetService {
     load(url: string): Promise<void>;
+    jsonForm(form: IJsonForm): Promise<any>;
     postForm(
         url: string,
         form: {[key: string]: string | number},
         headers?: {[key: string]: string},
     ): Promise<any>;
 
+    setAuth(auth: IMintAuth): void;
     getCookies(): CookieJar;
     setCookie(name: string, value: string): void;
 }

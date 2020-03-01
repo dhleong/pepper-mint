@@ -9,7 +9,7 @@ export class MintAuth implements IMintAuthorizer {
 
     private readonly strategies: IMintAuthorizer[];
 
-    constructor(net: INetService) {
+    constructor(private readonly net: INetService) {
         this.strategies = [
             new LegacyMintAuth(net),
             new ChromedriverMintAuth(),
@@ -24,7 +24,10 @@ export class MintAuth implements IMintAuthorizer {
         for (const strategy of this.strategies) {
             try {
                 const auth = await strategy.authorize(events, credentials);
-                if (auth) return auth;
+                if (auth) {
+                    this.net.setAuth(auth);
+                    return auth;
+                }
             } catch (e) {
                 // fall
                 lastError = e;
