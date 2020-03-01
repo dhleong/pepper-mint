@@ -6,6 +6,7 @@ import { IMintCategory } from "./model/category";
 import { IMintProvider, IMintProviderAccount } from "./model/provider";
 import { IMintTag } from "./model/tag";
 import { IMintTransaction, IMintTransactionQuery, INewTransaction, ITransactionEdit } from "./model/transaction";
+import { delayMillis } from "./util/async";
 import { Cache } from "./util/cache";
 import { Clock, IClock } from "./util/clock";
 import { stringifyDate } from "./util/date";
@@ -13,8 +14,29 @@ import { stringifyDate } from "./util/date";
 const INTUIT_API_KEY = "prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy";
 const INTUIT_URL_BASE = "mas/v1";
 
-function accountIsActive(account: IMintProviderAccount) {
+const DEFAULT_REFRESH_AGE_MILLIS = 24 * 3600 * 1000; // 24 hours
+
+function accountIsActive(account: IMintAccount | IMintProviderAccount) {
     return account.isActive;
+}
+
+export type DoneRefreshingPredicate = (ids: (IMintAccount | IMintProviderAccount)[]) => boolean;
+
+/**
+ * Coerce the "doneRefreshing" arg passed to various functions
+ *  into the appropriate predicate
+ */
+function coerceDoneRefreshing(
+    arg: number | DoneRefreshingPredicate | undefined,
+): DoneRefreshingPredicate {
+    if (!arg || typeof(arg) === 'number') {
+        const maxRefreshingIds = arg || 0;
+        return (accounts: any[]) => {
+            return accounts.length <= maxRefreshingIds;
+        };
+    }
+
+    return arg;
 }
 
 export class PepperMint extends EventEmitter {
@@ -276,6 +298,106 @@ export class PepperMint extends EventEmitter {
      */
     public async initiateAccountRefresh() {
         await this.postIntuitJson("/refreshJob", { allProviders: true });
+    }
+
+    /**
+     * This is a convenience function on top of `refreshIfNeeded()`
+     *  and `waitForRefresh()`. Options is an object with keys:
+     *      - maxAgeMillis: see refreshIfNeeded()
+     *      - doneRefreshing: see waitForRefresh()
+     *      - maxRefreshingIds: Deprecated; see waitForRefresh()
+     *
+     * @return A Promise that resolves to this PepperMint instance
+     *  when refreshing is done (or if it wasn't needed)
+     */
+    public async refreshAndWaitIfNeeded(
+        options: {
+            maxAgeMillis?: number;
+            doneRefreshing?: DoneRefreshingPredicate;
+            maxRefreshingIds?: number;
+        } = {},
+    ) {
+        const waitArg = options.doneRefreshing || options.maxRefreshingIds;
+
+        while (true) {
+            const didRefresh = await this.refreshIfNeeded(
+                options.maxAgeMillis,
+                waitArg,
+            );
+            if (!didRefresh) {
+                // done!
+                return this;
+            }
+        }
+    }
+
+    /**
+     * If any accounts haven't been updated in the last `maxAgeMillis`
+     *  milliseconds (by default, 24 hours), this will initiate an account
+     *  refresh.
+     *
+     * @param doneRefreshing As with `waitForRefresh()`.
+     * @returns A promise that resolves to `true` once the refresh is
+     *  initiated, else `false`. If a refresh *will be* initiated,
+     *  a 'refreshing' event is emitted with a list of the accounts being
+     *  refreshed.
+     */
+    public async refreshIfNeeded(
+        maxAgeMillis: number = DEFAULT_REFRESH_AGE_MILLIS,
+        doneRefreshing?: number | DoneRefreshingPredicate,
+    ) {
+        maxAgeMillis = maxAgeMillis || DEFAULT_REFRESH_AGE_MILLIS;
+        doneRefreshing = coerceDoneRefreshing(doneRefreshing);
+
+        const accounts = await this.accounts();
+
+        const now = this.clock.now().getTime();
+        const needRefreshing = accounts.filter(account => {
+            if (account.isError || account.fiLoginStatus.startsWith("FAILED")) {
+                // ignore accounts we *can't* refresh
+                return false;
+            }
+
+            return now - account.lastUpdated > maxAgeMillis;
+        }).filter(accountIsActive);
+
+        if (doneRefreshing(needRefreshing)) {
+            // no refresh needed!
+            return false;
+        } else {
+            this.emit("refreshing", needRefreshing);
+            await this.initiateAccountRefresh();
+            return true;
+        }
+    }
+
+    /**
+     * Wait until an account refresh is completed. This will poll
+     *  `getRefreshingAccount()` every few seconds, and emit a
+     *  'refreshing' event with the status, then finally resolve
+     *  to this PepperMint instance when done.
+     *
+     * @param doneRefreshing A predicate function that takes a list of accounts
+     *  and returns True if refreshing is "done." If not provided,
+     *  this defaults to checking for an empty list---that is, there are no
+     *  more accounts being refreshed. For backwards compatibility, this
+     *  may also be the max number of still-refreshing ids remaining to
+     *  be considered "done." This is 0 by default, of course.
+     */
+    public async waitForRefresh(doneRefreshing?: number | DoneRefreshingPredicate) {
+        doneRefreshing = coerceDoneRefreshing(doneRefreshing);
+
+        while (true) {
+            const refreshing = await this.getRefreshingAccounts();
+            if (doneRefreshing(refreshing)) {
+                // done!
+                return this;
+            }
+
+            this.emit("refreshing", refreshing);
+
+            await delayMillis(10000);
+        }
     }
 
     private async getIntuitJson(urlPart: string) {
