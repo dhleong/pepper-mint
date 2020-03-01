@@ -53,6 +53,31 @@ export class PepperMint extends EventEmitter {
         });
     }
 
+    public getCategoryNameById(categories: IMintCategory[], id: number) {
+        if (id === 0) return "Uncategorized";
+
+        let found: string | null = null;
+        categories.some(el => {
+            if (el.id === id) {
+                found = el.value;
+                return true;
+            }
+
+            if (!el.children) return false;
+
+            // there's only one level of depth, so
+            // no need for recursion
+            return el.children.some(kid => {
+                if (kid.id === id) {
+                    found = el.value + ": " + kid.value;
+                    return true;
+                }
+            });
+        });
+
+        return found;
+    };
+
     private async getJsonData<T>(args: string | {[key: string]: any}): Promise<T> {
         if (typeof args === "string") {
             args = { task: args };
