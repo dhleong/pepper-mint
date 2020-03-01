@@ -3,15 +3,28 @@ import { EventEmitter } from "events";
 import { IMintAuth, INetService } from "./model";
 import { IMintAccount } from "./model/account";
 import { IMintCategory } from "./model/category";
+import { IMintProvider, IMintProviderAccount } from "./model/provider";
 import { IMintTag } from "./model/tag";
 import { IMintTransaction, IMintTransactionQuery, INewTransaction, ITransactionEdit } from "./model/transaction";
 import { Cache } from "./util/cache";
 import { Clock, IClock } from "./util/clock";
 import { stringifyDate } from "./util/date";
 
+const INTUIT_API_KEY = "prdakyrespQBtEtvaclVBEgFGm7NQflbRaCHRhAy";
+const INTUIT_URL_BASE = "mas/v1";
+
+function accountIsActive(account: IMintProviderAccount) {
+    return account.isActive;
+}
+
 export class PepperMint extends EventEmitter {
 
     private readonly cache = new Cache();
+
+    // NOTE: this key might not be static; if that's the case,
+    // we can load overview.event and pull it out of the embedded
+    // javascript from a JSON object field `browserAuthAPIKey`
+    private readonly intuitApiKey = INTUIT_API_KEY;
 
     constructor(
         readonly net: INetService,
@@ -197,6 +210,72 @@ export class PepperMint extends EventEmitter {
 
         return this.net.postForm("updateTransaction.xevent", form);
     }
+
+    /**
+     * DEPRECATED: The name of this method is misleading, but is kept for
+     * backwards compatibility. You should prefer to use
+     * [getRefreshingProviderIds] instead.
+     */
+    public async getRefreshingAccountIds() {
+        return this.getRefreshingProviderIds();
+    }
+    /**
+     * Check which providers are still refreshing (if any). A provider
+     * is, for example, the bank at which your account lives.
+     */
+    public async getRefreshingProviderIds(): Promise<string[]> {
+        const response = await this.getIntuitJson("/refreshJob");
+        return response.refreshingCpProviderIds;
+    }
+
+    /**
+     * Convenience to map the result of getRefreshingAccountIds() to
+     * the actual Accounts (IE: similar to that returned from .accounts()).
+     *
+     * NOTE: The actual Account instances will be those from providers(),
+     *  and so some fields will be slightly different than those from
+     *  .accounts().
+     */
+    public async getRefreshingAccounts(): Promise<IMintProviderAccount[]> {
+        const [providers, refreshingProviderIds] = await Promise.all([
+            this.providers(),
+            this.getRefreshingProviderIds(),
+        ]);
+
+        const providerById = providers.reduce((m, provider) => {
+            m[provider.cpProviderId] = provider;
+            return m;
+        }, {} as {[key: string]: IMintProvider});
+
+        // no indication of actually which accounts are specifically being
+        // refreshed, so we just assume all for a provider
+        return refreshingProviderIds.map(id => providerById[id])
+        .filter(provider => provider) // unknown provider...?
+        .reduce((result, provider) => {
+            return result.concat(provider.providerAccounts);
+        }, [] as IMintProviderAccount[])
+        .filter(accountIsActive);
+    }
+
+    /**
+     * Get a list of the financial data providers available to this
+     * Mint user.
+     */
+    public async getProviders(): Promise<IMintProvider[]> {
+        const response = await this.getIntuitJson("/providers");
+        return response.providers;
+    }
+    public async providers() {
+        return this.cache.as("providers", () => {
+            return this.getProviders();
+        });
+    }
+
+    private async getIntuitJson(urlPart: string) {
+        return this.net.getJson(INTUIT_URL_BASE + urlPart, undefined, {
+            Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0',
+        });
+    };
 
     private async getJsonData<T>(args: string | {[key: string]: any}): Promise<T> {
         if (typeof args === "string") {
