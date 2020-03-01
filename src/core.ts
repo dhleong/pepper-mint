@@ -4,7 +4,7 @@ import { IMintAuth, INetService } from "./model";
 import { IMintAccount } from "./model/account";
 import { IMintCategory } from "./model/category";
 import { IMintTag } from "./model/tag";
-import { IMintTransaction, IMintTransactionQuery } from "./model/transaction";
+import { IMintTransaction, IMintTransactionQuery, INewTransaction, ITransactionEdit } from "./model/transaction";
 import { Cache } from "./util/cache";
 import { Clock, IClock } from "./util/clock";
 import { stringifyDate } from "./util/date";
@@ -118,6 +118,84 @@ export class PepperMint extends EventEmitter {
             endDate,
             task: "transactions",
         });
+    }
+
+    /**
+     * Create a new cash transaction; to be used to fake transaction
+     * imports. It is not possible to create non-cash transactions
+     * associated with a bank account.
+     *
+     * NB: There is currently very little arg validation,
+     *  and the server seems to silently reject issues, too :(
+     */
+    public async createTransaction(args: INewTransaction) {
+        const form: any = {
+            amount: args.amount,
+            cashTxnType: 'on',
+            date: stringifyDate(args.date),
+            isInvestment: args.isInvestment,
+            merchant: args.merchant,
+            mtAccount: args.accountId,
+            mtCashSplitPref: 2, // ?
+            mtCheckNo: '',
+            mtIsExpense: args.isExpense,
+            mtType: 'cash',
+            note: args.note,
+            task: 'txnadd',
+            txnId: ':0', // might be required
+
+            token: this.auth.token,
+        };
+
+        if (args.category) {
+            form.catId = args.category.id;
+            form.category = args.category.name;
+        }
+
+        // set any tags requested
+        if (Array.isArray(args.tags)) {
+            for (const tagId of args.tags) {
+                form["tag" + tagId] = 2; // what? 2?!
+            }
+        }
+
+        return this.net.postForm("updateTransaction.xevent", form);
+    }
+
+    /**
+     * Delete a transaction by its id
+     */
+    public deleteTransaction(transactionId: number) {
+        return this.net.postForm('updateTransaction.xevent', {
+            task: "delete",
+            txnId: transactionId,
+            token: this.auth.token,
+        });
+    }
+
+    /**
+     * Note that the format of the category information is different from
+     * that for createTransaction. This is to make it simple to just use a
+     * modified result from `getTransactions()`
+     */
+    public editTransaction(edit: ITransactionEdit) {
+        const form = {
+            amount: "",
+            category: edit.category,
+            catId: edit.categoryId,
+            categoryTypeFilter: "null",
+            date: stringifyDate(edit.date),
+            merchant: edit.merchant,
+            txnId: edit.id,
+
+            task: "txnedit",
+            token: this.auth.token,
+        };
+
+        // TODO support tags, adding notes?
+        // That form is much more complicated...
+
+        return this.net.postForm("updateTransaction.xevent", form);
     }
 
     private async getJsonData<T>(args: string | {[key: string]: any}): Promise<T> {

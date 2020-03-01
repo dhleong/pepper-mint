@@ -50,3 +50,38 @@ export interface IMintTransaction {
     categoryId: number;
     ruleCategoryId: number;
 }
+
+export interface INewTransaction {
+    /** Apparently ignored, but good to have, I guess? */
+    accountId?: number;
+    amount: 4.2;
+
+    /** If not provided, the txn will show up as UNCATEGORIZED */
+    category?: {
+        id: number;
+        name: string;
+    };
+
+    /** If a string, use format: "MM/DD/YYYY" */
+    date: string | Date;
+
+    isExpense: boolean;
+    isInvestment: boolean;
+
+    /** Merchant name */
+    merchant: string;
+    note?: string;
+
+    /** set of IDs */
+    tags?: number[];
+}
+
+export interface ITransactionEdit {
+    id: number;
+
+    /** EX: 'Bills & Utilities' */
+    category: string;
+    categoryId: number;
+    date: string | Date;
+    merchant: string;
+}
