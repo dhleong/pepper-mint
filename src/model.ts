@@ -49,6 +49,11 @@ export interface INetService {
         form: {[key: string]: string | number},
         headers?: {[key: string]: string},
     ): Promise<any>;
+    postJson(
+        url: string,
+        json: any,
+        headers?: {[key: string]: string},
+    ): Promise<any>;
 
     setAuth(auth: IMintAuth): void;
     getCookies(): CookieJar;

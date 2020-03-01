@@ -90,6 +90,20 @@ export class RequestNetService implements INetService {
         return result;
     }
 
+    public async postJson(
+        url: string,
+        json: any,
+        headers?: { [key: string]: string },
+    ): Promise<any> {
+        const result = await this.request.post({
+            url: resolveUrl(url),
+            json,
+            headers,
+        });
+        checkJsonResponse(result);
+        return result;
+    }
+
     public getCookies(): CookieJar {
         return this.jar;
     }

@@ -271,8 +271,21 @@ export class PepperMint extends EventEmitter {
         });
     }
 
+    /**
+     * Refresh account FI Data
+     */
+    public async initiateAccountRefresh() {
+        await this.postIntuitJson("/refreshJob", { allProviders: true });
+    }
+
     private async getIntuitJson(urlPart: string) {
         return this.net.getJson(INTUIT_URL_BASE + urlPart, undefined, {
+            Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0',
+        });
+    };
+
+    private async postIntuitJson(urlPart: string, body: any) {
+        return this.net.postJson(INTUIT_URL_BASE + urlPart, body, {
             Authorization: 'Intuit_APIKey intuit_apikey=' + this.intuitApiKey + ', intuit_apikey_version=1.0',
         });
     };
