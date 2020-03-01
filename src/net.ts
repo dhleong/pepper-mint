@@ -9,6 +9,17 @@ export const URL_SESSION_INIT = "https://pf.intuit.com/fp/tags?js=0&org_id=v60nf
 
 const USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36";
 
+function checkJsonResponse(response: any) {
+    if (typeof response === "string") {
+        if (response.includes("Session has expired.")) {
+            throw new Error("Session has expired");
+        }
+        if (response.includes("<response><empty/></response>")) {
+            return { success: true };
+        }
+    }
+}
+
 export class RequestNetService implements INetService {
 
     private readonly jar = request.jar();
@@ -19,6 +30,21 @@ export class RequestNetService implements INetService {
 
     public load(url: string): Promise<void> {
         return this.request.get(resolveUrl(url));
+    }
+
+    public async getJson(
+        url: string,
+        qs?: {[key: string]: string},
+        headers?: {[key: string]: string},
+    ) {
+        const response = await this.request.get({
+            url: resolveUrl(url),
+            json: true,
+            headers,
+            qs,
+        });
+        checkJsonResponse(response);
+        return response;
     }
 
     public async jsonForm(
@@ -60,14 +86,7 @@ export class RequestNetService implements INetService {
             form,
             headers: fullHeaders,
         });
-        if (typeof result === "string") {
-            if (result.includes("Session has expired.")) {
-                throw new Error("Session has expired");
-            }
-            if (result.includes("<response><empty/></response>")) {
-                return { success: true };
-            }
-        }
+        checkJsonResponse(result);
         return result;
     }
 
