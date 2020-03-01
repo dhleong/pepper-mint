@@ -3,6 +3,7 @@ import { EventEmitter } from "events";
 import { IMintAuth, INetService } from "./model";
 import { IMintAccount } from "./model/account";
 import { IMintCategory } from "./model/category";
+import { IMintTag } from "./model/tag";
 import { Cache } from "./util/cache";
 import { Clock, IClock } from "./util/clock";
 
@@ -77,6 +78,10 @@ export class PepperMint extends EventEmitter {
 
         return found;
     };
+
+    public async getTags(): Promise<IMintTag[]> {
+        return this.getJsonData("tags");
+    }
 
     private async getJsonData<T>(args: string | {[key: string]: any}): Promise<T> {
         if (typeof args === "string") {
