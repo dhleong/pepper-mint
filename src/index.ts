@@ -45,5 +45,41 @@ export = prepare;
 
 /* eslint-disable */
 namespace prepare {
-    export import types = ModelTypes;
+    // manually re-export model types in a namespace matching the default export
+    // for convenient consumption from typescript, since we sadly can't use the
+    // `export * from` syntax within the namespace
+
+    export type ICredentialExtras = ModelTypes.ICredentialExtras;
+    export type IMintCredentials = ModelTypes.IMintCredentials;
+    export type ICookie = ModelTypes.ICookie;
+    export type IMintAuth = ModelTypes.IMintAuth;
+    export type IMintAuthorizer = ModelTypes.IMintAuthorizer;
+    export type IJsonForm = ModelTypes.IJsonForm;
+    export type INetService = ModelTypes.INetService;
+
+    export type IMintAccount = ModelTypes.IMintAccount;
+
+    export type IBudgetRangeQuery = ModelTypes.IBudgetRangeQuery;
+    export type IBudgetLastNMonthsQuery = ModelTypes.IBudgetLastNMonthsQuery;
+    export type IBudgetQuery = ModelTypes.IBudgetQuery;
+    export type IMintBudgetItem = ModelTypes.IMintBudgetItem;
+    export type IMintBudgetData = ModelTypes.IMintBudgetData;
+    export type IMintBudget = ModelTypes.IMintBudget;
+    export type IMintCategory = ModelTypes.IMintCategory;
+
+    export type IMintProviderMetadata = ModelTypes.IMintProviderMetadata;
+    export type IMintProviderAccountBase = ModelTypes.IMintProviderAccountBase;
+    export type IMintProviderBankAccount = ModelTypes.IMintProviderBankAccount;
+    export type IMintProviderCreditAccount = ModelTypes.IMintProviderCreditAccount;
+    export type IMintProviderInvestmentAccount = ModelTypes.IMintProviderInvestmentAccount;
+    export type IMintProviderLoanAccount = ModelTypes.IMintProviderLoanAccount;
+    export type IMintProviderAccount = ModelTypes.IMintProviderAccount;
+    export type IMintProvider = ModelTypes.IMintProvider;
+
+    export type IMintTag = ModelTypes.IMintTag;
+
+    export type IMintTransactionQuery = ModelTypes.IMintTransactionQuery;
+    export type IMintTransaction = ModelTypes.IMintTransaction;
+    export type INewTransaction = ModelTypes.INewTransaction; 
+    export type ITransactionEdit = ModelTypes.ITransactionEdit;
 }

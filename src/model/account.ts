@@ -47,4 +47,4 @@ export interface IMintAccount {
     yodleeAccountId: number;
     name: string;
     status: Status;
-};
+}
