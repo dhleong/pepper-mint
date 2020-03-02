@@ -10,7 +10,7 @@
   "scripts": {
     "build": "tsc -p .",
     "check": "npm run lint && npm run build && npm run test",
-    "lint": "tslint -p .",
+    "lint": "eslint -c .eslintrc.js src/**.ts",
     "prepublishOnly": "npm run check",
     "test": "mocha -r ts-node/register test/**/*-test.ts"
   },
