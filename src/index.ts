@@ -5,6 +5,14 @@ import { PepperMint } from "./core";
 import { IMintCredentials, INetService } from "./model";
 import { RequestNetService } from "./net";
 
+export * from "./model";
+export * from "./model/account";
+export * from "./model/budget";
+export * from "./model/category";
+export * from "./model/provider";
+export * from "./model/tag";
+export * from "./model/transaction";
+
 export interface IPepperMintPromise extends Promise<PepperMint> {
     mint: EventEmitter;
 }
