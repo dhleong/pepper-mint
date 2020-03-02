@@ -85,9 +85,10 @@ function elementAttrMatches(
     return new webdriver.WebElementCondition(
         'until element[' + attrName + '] matches',
         (async (driver: webdriver.WebDriver) => {
-            const el = await driver.findElement(locator);
-            if (!el) return;
+            const els = await driver.findElements(locator);
+            if (!els.length) return;
 
+            const el = els[0];
             const attr = await el.getAttribute(attrName);
             if (predicate(attr)) {
                 return el;
