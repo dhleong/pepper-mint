@@ -2,11 +2,13 @@ import { EventEmitter } from "events";
 
 import { IMintAuth, INetService } from "./model";
 import { IMintAccount } from "./model/account";
+import { IBudgetQuery, IMintBudget } from "./model/budget";
 import { IMintCategory } from "./model/category";
 import { IMintProvider, IMintProviderAccount } from "./model/provider";
 import { IMintTag } from "./model/tag";
 import { IMintTransaction, IMintTransactionQuery, INewTransaction, ITransactionEdit } from "./model/transaction";
 import { delayMillis } from "./util/async";
+import { budgetForKey, formatBudgetQuery } from "./util/budget";
 import { Cache } from "./util/cache";
 import { Clock, IClock } from "./util/clock";
 import { stringifyDate } from "./util/date";
@@ -80,6 +82,31 @@ export class PepperMint extends EventEmitter {
         return this.cache.as("accounts", () => {
             return this.getAccounts();
         });
+    }
+
+    public async getBudgets(): Promise<IMintBudget>;
+    public async getBudgets(query: IBudgetQuery | Date): Promise<IMintBudget[]>;
+    public async getBudgets(arg: IBudgetQuery | Date = new Date()) {
+        const args = formatBudgetQuery(this.clock, arg);
+        const [ categories, json ] = await Promise.all([
+            this.categories(),
+            this.net.getJson("getBudget.xevent", args),
+        ]);
+
+        const data = json.data;
+        const incomeKeys = Object.keys(data.income).map(key => parseInt(key, 10));
+
+        if (arg instanceof Date) {
+            // single month
+            const budgetKey = Math.min(...incomeKeys).toString();
+            return budgetForKey(this, categories, data, budgetKey);
+        }
+
+        // list of months
+        incomeKeys.sort();
+        return incomeKeys.map(key =>
+            budgetForKey(this, categories, data, key.toString())
+        );
     }
 
     public getCategories(): Promise<IMintCategory[]> {

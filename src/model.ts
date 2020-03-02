@@ -40,7 +40,7 @@ export interface INetService {
     load(url: string): Promise<void>;
     getJson(
         url: string,
-        qs?: {[key: string]: string},
+        qs?: {[key: string]: string | number},
         headers?: {[key: string]: string},
     ): Promise<any>;
     jsonForm(form: IJsonForm): Promise<any>;

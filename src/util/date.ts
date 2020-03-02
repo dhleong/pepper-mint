@@ -55,3 +55,12 @@ export function stringifyDate(date: string | Date) {
     const year = date.getFullYear();
     return month + '/' + day + '/' + year;
 }
+
+export function firstDayOfNextMonth(date: Date) {
+    if (date.getMonth() === 11) {
+        return new Date(date.getFullYear() + 1, 0);
+    } else {
+        return new Date(date.getFullYear(), date.getMonth() + 1);
+    }
+}
+
