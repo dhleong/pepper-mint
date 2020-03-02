@@ -1,9 +1,14 @@
 import { PepperMint } from "../core";
-import { IBudgetQuery, IMintBudget, isLastNMonthsQuery } from "../model/budget";
+import { IBudgetLastNMonthsQuery, IBudgetQuery, IMintBudget } from "../model/budget";
 import { IMintCategory } from "../model/category";
 
 import { IClock } from "./clock";
 import { firstDayOfNextMonth } from "./date";
+
+export function isLastNMonthsQuery(query: IBudgetQuery): query is IBudgetLastNMonthsQuery {
+    const { months } = query as any;
+    return typeof months === "number";
+}
 
 function formatBudgetQueryDate(d: Date) {
     return (d.getMonth() + 1)

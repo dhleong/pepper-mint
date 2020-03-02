@@ -9,11 +9,6 @@ export interface IBudgetLastNMonthsQuery {
 
 export type IBudgetQuery = IBudgetRangeQuery | IBudgetLastNMonthsQuery;
 
-export function isLastNMonthsQuery(query: IBudgetQuery): query is IBudgetLastNMonthsQuery {
-    const { months } = query as any;
-    return typeof months === "number";
-}
-
 export interface IMintBudgetItem {
     /** rollover spending */
     ramt: number;

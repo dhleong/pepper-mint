@@ -3,21 +3,14 @@ import { EventEmitter } from "events";
 import { MintAuth } from "./auth";
 import { PepperMint } from "./core";
 import { IMintCredentials, INetService } from "./model";
+import * as ModelTypes from "./model";
 import { RequestNetService } from "./net";
 
-export * from "./model";
-export * from "./model/account";
-export * from "./model/budget";
-export * from "./model/category";
-export * from "./model/provider";
-export * from "./model/tag";
-export * from "./model/transaction";
-
-export interface IPepperMintPromise extends Promise<PepperMint> {
+interface IPepperMintPromise extends Promise<PepperMint> {
     mint: EventEmitter;
 }
 
-export default function prepare(
+function prepare(
     email: string,
     password: string,
     token?: any,
@@ -46,4 +39,11 @@ async function authorize(
 ) {
     const authData = await auth.authorize(events, creds);
     return new PepperMint(net, authData);
+}
+
+export = prepare;
+
+/* eslint-disable */
+namespace prepare {
+    export import types = ModelTypes;
 }

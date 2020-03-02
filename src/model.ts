@@ -2,6 +2,13 @@ import { EventEmitter } from "events";
 
 import { CookieJar } from "request";
 
+export * from "./model/account";
+export * from "./model/budget";
+export * from "./model/category";
+export * from "./model/provider";
+export * from "./model/tag";
+export * from "./model/transaction";
+
 export interface ICredentialExtras {
     token?: string;
     cookies?: string | any[];
