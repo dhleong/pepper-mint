@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 
 import { MintAuth } from "./auth";
 import { PepperMint } from "./core";
+import { DeferredAuth } from "./deferred";
 import { IMintCredentials, INetService } from "./model";
 import * as ModelTypes from "./model";
 import { RequestNetService } from "./net";
@@ -18,8 +19,9 @@ function prepare(
 ): IPepperMintPromise {
     const net = new RequestNetService();
     const auth = new MintAuth(net);
-    const events = new EventEmitter();
-    const promise = authorize(events, net, auth, {
+    const deferredAuth = new DeferredAuth();
+    const mint = new PepperMint(net, deferredAuth);
+    const promise = authorize(mint, deferredAuth, net, auth, {
         email,
         password,
         extras: {
@@ -27,18 +29,20 @@ function prepare(
             cookies,
         },
     }) as IPepperMintPromise;
-    promise.mint = events;
+    promise.mint = mint;
     return promise;
 }
 
 async function authorize(
-    events: EventEmitter,
+    mint: PepperMint,
+    deferredAuth: DeferredAuth,
     net: INetService,
     auth: MintAuth,
     creds: IMintCredentials,
 ) {
-    const authData = await auth.authorize(events, creds);
-    return new PepperMint(net, authData);
+    const authData = await auth.authorize(mint, creds);
+    deferredAuth.resolve(authData);
+    return mint;
 }
 
 export = prepare;
