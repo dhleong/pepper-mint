@@ -1,5 +1,5 @@
 var assert = require('assert');
-var PepperMint = require('../index.js');
+var PepperMint = require('../dist');
 
 try {
     var config = require('./integration-config.json');
@@ -14,20 +14,20 @@ if (config) {
                 this.timeout(30000);
                 return PepperMint(config.username, config.password, config.cookie).then(mint => {
                     assert.notEqual(null, mint);
-                }).fail(err => {
+                }).catch(err => {
                     if (err) throw err;
                 });
             });
         });
         describe('#getTransactions()', function () {
-            it.only('should return list of transactions', function () {
+            it('should return list of transactions', function () {
                 this.timeout(30000);
                 return PepperMint(config.username, config.password, config.cookie).then(mint => {
                     return mint.getTransactions().then(transactions => {
                         assert.notEqual(null, transactions);
                         assert.notEqual(0, transactions.length);
                     });
-                }).fail(err => {
+                }).catch(err => {
                     if (err) throw err;
                 });
             });

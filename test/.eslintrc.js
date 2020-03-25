@@ -1,4 +1,7 @@
 module.exports = {
+    "extends": [
+        "../eslint",
+    ],
     "env": {
         "es6": true,
         "mocha": true,
