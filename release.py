@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Release script for pepper-mint
 #
@@ -9,11 +9,11 @@ from collections import OrderedDict
 try:
     from hostage import *
 except ImportError:
-    print "!! Release library unavailable."
-    print "!! Use `pip install hostage` to fix."
-    print "!! You will also need an API token in .github.token,"
-    print "!!  a .hubrrc config, or `brew install hub` configured."
-    print "!! A $GITHUB_TOKEN env variable will also work."
+    print("!! Release library unavailable.")
+    print("!! Use `pip install hostage` to fix.")
+    print("!! You will also need an API token in .github.token,")
+    print("!!  a .hubrrc config, or `brew install hub` configured.")
+    print("!! A $GITHUB_TOKEN env variable will also work.")
     exit(1)
 
 #
@@ -70,7 +70,7 @@ def buildDefaultNotes(_):
     if closedIssues:
         for issue in closedIssues:
             found = False
-            for label in labeled.iterkeys():
+            for label in labeled.keys():
                 if label in issue.labels:
                     labeled[label]['content'] += formatIssue(issue)
                     found = True
@@ -78,7 +78,7 @@ def buildDefaultNotes(_):
             if not found:
                 labeled['_default']['content'] += formatIssue(issue)
 
-    for labeledIssueInfo in labeled.itervalues():
+    for labeledIssueInfo in labeled.values():
         if labeledIssueInfo['content']:
             contents += "\n**{title}**:\n{content}".format(**labeledIssueInfo)
 
@@ -125,7 +125,7 @@ verify(Execute('npm publish')).succeeds(silent=False)
 # Upload to github
 #
 
-print "Uploading to Github..."
+print("Uploading to Github...")
 
 verify(versionTag).create()
 verify(versionTag).push("origin")
