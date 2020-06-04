@@ -1,6 +1,6 @@
 {
   "name": "pepper-mint",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "An unofficial API for mint.com",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
