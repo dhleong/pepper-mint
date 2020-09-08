@@ -1,6 +1,6 @@
 {
   "name": "pepper-mint",
-  "version": "2.2.1",
+  "version": "2.2.2",
   "description": "An unofficial API for mint.com",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -30,7 +30,7 @@
   },
   "homepage": "https://github.com/dhleong/pepper-mint",
   "dependencies": {
-    "chromedriver": "^83.0.0",
+    "chromedriver": "^85.0.0",
     "request": "^2.88.2",
     "request-promise-native": "^1.0.8",
     "selenium-webdriver": "^3.6.0"
